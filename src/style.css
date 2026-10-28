@@ -1,0 +1,259 @@
+/* Будини Coffee: неоновая мята на ночном чёрном, как световая вывеска кофейни. */
+:root {
+  --ink: #07090c;
+  --ink-2: #0d1217;
+  --ink-3: #141b21;
+  --line: #1f2a30;
+  --mint: #66d4be;
+  --teal: #3abbb0;
+  --deep: #1e6e69;
+  --pale: #9be6d8;
+  --text: #e8f3f1;
+  --muted: #8aa39f;
+
+  --font-display: 'Unbounded', 'Arial Black', sans-serif;
+  --font-body: 'Onest', 'Segoe UI', sans-serif;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* мягкое замедление в конце движения */
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --radius: 18px;
+  --gutter: clamp(16px, 4vw, 56px);
+  --max: 1280px;
+  --header-h: 76px;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Горизонтальный вылет (наклонная бегущая строка и т.п.) режем на обёртке, а не на html/body:
+   overflow на них превращает body в scroll-контейнер и ломает sticky-сцену видео.
+   clip, в отличие от hidden, не создаёт scroll-контейнер. */
+#app {
+  overflow-x: clip;
+}
+
+/* зерно плёнки поверх всего сайта */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--mint);
+  color: var(--ink);
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+.neon {
+  color: var(--mint);
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+
+.btn {
+  --b: var(--mint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  border: 1.5px solid var(--b);
+  background: var(--b);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.5s var(--ease), background 0.35s var(--ease), color 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background: var(--pale);
+    border-color: var(--pale);
+    transform: translateY(-1px);
+  }
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--mint);
+}
+
+@media (hover: hover) {
+  .btn--ghost:hover {
+    background: var(--mint);
+    color: var(--ink);
+    border-color: var(--mint);
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.35s var(--ease), background 0.35s var(--ease), color 0.35s var(--ease);
+}
+
+@media (hover: hover) {
+  .chip:hover {
+    border-color: var(--deep);
+  }
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* появление блоков при прокрутке */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 1.1s var(--ease),
+    transform 1.3s var(--ease);
+  transition-delay: var(--d, 0s);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- телефоны и планшеты ---- */
+a,
+button,
+summary,
+label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* без задержки и двойного тапа-зума на кнопках */
+}
+
+.btn:active,
+.chip:active {
+  transform: scale(0.97);
+  transition-duration: 0.12s;
+}
+
+/* iOS увеличивает страницу при фокусе на поле со шрифтом меньше 16px */
+input,
+textarea,
+select {
+  font-size: max(16px, 1em);
+}
+
+@media (pointer: coarse) {
+  .chip {
+    min-height: 44px;
+  }
+}
