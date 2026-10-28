@@ -1,0 +1,56 @@
+# Сборка и публикация на GitHub Pages при каждом push в main (и вручную из вкладки Actions).
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Одновременно идёт только один деплой; свежий push отменяет устаревший.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - run: npm ci
+
+      # base_path: «/budini-coffee» для username.github.io/budini-coffee, пустой для своего домена
+      - run: npm run build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+
+      # SPA на createWebHistory: Pages отдаёт 404.html на любой неизвестный путь,
+      # копия index.html поднимает приложение, и роутер открывает нужную страницу.
+      - run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

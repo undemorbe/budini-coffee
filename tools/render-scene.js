@@ -3,6 +3,7 @@
 // так кадры можно снять по одному и собрать из них scroll-video последовательность.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import '@fontsource/unbounded/700.css'
 
 // Параметры из адреса: /render.html?w=720&h=1280&fov=56&frames=150 рендерит вертикальную
@@ -242,22 +243,86 @@ lid.add(sip)
 scene.add(lid)
 
 // ---------- кофейные зёрна ----------
-const beanGeo = new THREE.SphereGeometry(0.16, 24, 16)
-beanGeo.scale(1, 0.72, 1.45)
-const beanMat = new THREE.MeshStandardMaterial({ color: '#3B2416', roughness: 0.38, metalness: 0.08 })
-const creaseGeo = new THREE.BoxGeometry(0.016, 0.014, 0.32)
-const creaseMat = new THREE.MeshStandardMaterial({ color: '#120A05', roughness: 0.8 })
 const rand = (s) => {
   const x = Math.sin(s * 9301 + 49297) * 233280
   return x - Math.floor(x)
 }
+
+// Зерно строится из сферы: длинная ось z, выпуклая спинка снизу, плоская сторона сверху
+// с S-образной бороздкой. Бороздка вдавлена в геометрию (а не наклеена сверху), её края
+// чуть приподняты, а на дне видна светлая серебристая плёнка, как у настоящего обжаренного зерна.
+const ROAST = new THREE.Color('#3A2012')
+const ROAST_EDGE = new THREE.Color('#4C2C18')
+const CREASE = new THREE.Color('#170B05')
+const CHAFF = new THREE.Color('#9C7550')
+function beanGeometry(seed) {
+  let g = new THREE.SphereGeometry(1, 192, 96)
+  g.rotateX(Math.PI / 2) // полюса сферы уходят на кончики зерна
+  g.deleteAttribute('normal')
+  g.deleteAttribute('uv')
+  g = mergeVertices(g)
+
+  const halfLen = 0.23 * (0.94 + rand(seed + 1) * 0.12)
+  const halfWid = 0.165 * (0.92 + rand(seed + 2) * 0.12)
+  const back = 0.118 // выпуклая сторона
+  const face = 0.058 // плоская сторона
+  const bend = 0.24 + rand(seed + 3) * 0.12 // насколько бороздка закручена буквой S
+  const egg = (rand(seed + 4) - 0.5) * 0.12 // один конец чуть шире другого
+
+  const pos = g.attributes.position
+  const colors = new Float32Array(pos.count * 3)
+  const c = new THREE.Color()
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i)
+    const y = pos.getY(i)
+    const z = pos.getZ(i)
+
+    // плоская сторона: pow < 1 даёт ровную площадку со скруглёнными краями
+    let py = y > 0 ? face * Math.pow(y, 0.62) : -back * Math.pow(-y, 0.92)
+    let px = x * halfWid * (1 + egg * z)
+    const pz = z * halfLen
+
+    // бороздка: гауссов жёлоб вдоль S-кривой, к кончикам сходит на нет
+    const top = THREE.MathUtils.smoothstep(y, 0.05, 0.4)
+    const along = 1 - THREE.MathUtils.smoothstep(Math.abs(z), 0.62, 0.95)
+    const cx = bend * z * z * z - 0.03 * z
+    const w = 0.062 * (1 - 0.35 * z * z)
+    const d = (x - cx) / w
+    const groove = Math.exp(-d * d) * along * top
+    const lips = Math.exp(-((Math.abs(d) - 2.1) ** 2 / 1.4)) * along * top
+    py += -0.068 * groove + 0.006 * lips
+
+    // половинки зерна чуть заворачиваются внутрь бороздки
+    px -= Math.sign(d) * 0.012 * groove * halfWid
+
+    // лёгкая неровность поверхности, у каждого зерна своя
+    const n = Math.sin(x * 4 + seed * 3.1) * Math.sin(y * 3 + seed * 1.7) * Math.sin(z * 5 + seed * 2.3)
+    const k = 1 + n * 0.012
+    pos.setXYZ(i, px * k, py * k, pz * k)
+
+    c.copy(ROAST).lerp(ROAST_EDGE, Math.max(0, 1 - Math.abs(y) * 3) * 0.6)
+    c.lerp(CREASE, Math.min(1, groove * 1.25))
+    const chaff = Math.exp(-(((x - cx) / (w * 0.22)) ** 2)) * along * top
+    c.lerp(CHAFF, chaff * 0.55 * (0.6 + 0.4 * Math.sin(z * 14 + seed)))
+    colors.set([c.r, c.g, c.b], i * 3)
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  g.computeVertexNormals()
+  return g
+}
+const beanGeos = [0, 1, 2, 3].map((s) => beanGeometry(s * 17 + 5))
+// обжаренное зерно матовое с маслянистым блеском
+const beanMat = new THREE.MeshPhysicalMaterial({
+  vertexColors: true,
+  roughness: 0.55,
+  metalness: 0,
+  clearcoat: 0.45,
+  clearcoatRoughness: 0.38,
+})
 const beans = []
 for (let i = 0; i < 34; i++) {
   const b = new THREE.Group()
-  b.add(new THREE.Mesh(beanGeo, beanMat))
-  const crease = new THREE.Mesh(creaseGeo, creaseMat)
-  crease.position.y = 0.106
-  b.add(crease)
+  b.add(new THREE.Mesh(beanGeos[i % beanGeos.length], beanMat))
   b.userData = {
     a0: rand(i + 1) * Math.PI * 2,
     r: 2.1 + rand(i + 11) * 1.4,
@@ -376,3 +441,6 @@ window.sceneReady = document.fonts.load('700 210px Unbounded').then(() => {
   window.renderFrame(0)
   return true
 })
+
+// для отладки сцены из консоли: крупный план зерна и т. п.
+if (import.meta.env.DEV) window.__scene = { THREE, scene, camera, renderer, beans, update }

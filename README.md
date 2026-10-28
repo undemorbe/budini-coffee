@@ -12,6 +12,18 @@ npm run build    # production-сборка в dist/
 npm run preview  # просмотр сборки
 ```
 
+## Деплой на GitHub Pages
+
+`.github/workflows/deploy.yml`: каждый push в `main` (или ручной запуск во вкладке Actions) собирает сайт
+и публикует `dist/` на Pages. Один раз включить в репозитории: Settings → Pages → Source: **GitHub Actions**.
+
+- `base` берётся из `BASE_PATH`, его подставляет `actions/configure-pages`: `/budini-coffee/` для
+  `undemorbe.github.io/budini-coffee`, `/` для своего домена. Локально `BASE_PATH` не нужен.
+- Роутер на `createWebHistory`, поэтому workflow копирует `index.html` в `404.html`: прямые ссылки вида
+  `/budini-coffee/menu` открываются, а не дают 404 GitHub.
+- Проверить сборку под подпутём локально:
+  `BASE_PATH=/budini-coffee/ npm run build && BASE_PATH=/budini-coffee/ npm run preview`.
+
 ## Страницы
 
 - `/` главная: 3D scroll-video (стакан Будини, кофейная воронка в фирменных разводах, зёрна, пар),
@@ -45,10 +57,23 @@ Header и footer общие для всех страниц.
    окно заранее декодированных `ImageBitmap` вокруг плейхеда (нет подвисаний на декодировании при остановке),
    `prefers-reduced-motion` (держит финальный кадр), очистка слушателей.
 
+5. Для телефонов отдельная вертикальная версия той же сцены: `public/frames-m/` (150 кадров 540×960,
+   ~2.4 МБ, `media/budini-hero-mobile.mp4`), камера с FOV 52 и сдвигом стакана вверх, чтобы его не
+   закрывали плашки с текстом. `ScrollVideo` включает её на экранах уже 4:5 и переключает наборы на лету
+   при повороте телефона; окно `ImageBitmap` на телефоне меньше, чтобы экономить память.
+
+6. Кофейные зёрна процедурные (`beanGeometry` в `tools/render-scene.js`): выпуклая спинка, плоская сторона,
+   S-образная бороздка, вдавленная в геометрию, светлая серебристая плёнка на её дне, четыре варианта формы.
+   Цвет в вертексах, материал `MeshPhysicalMaterial` с лёгким clearcoat (маслянистый блеск обжарки).
+
+Важно: не ставить `overflow` на `html`/`body`. Тогда body становится scroll-контейнером и sticky-сцена
+видео уезжает вместе со страницей. Горизонтальный вылет режется `overflow-x: clip` на `#app`.
+
 Пересобрать кадры после правки сцены:
 
 ```bash
 npm run dev  # затем открыть /render.html и снять кадры window.renderFrame(0..299)
+# вертикальная версия: /render.html?w=540&h=960&fov=52&frames=150&shift=0.16
 ```
 
 ## Данные
