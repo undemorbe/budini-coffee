@@ -146,28 +146,81 @@ glow.rotation.x = -Math.PI / 2
 glow.position.y = -1.6
 scene.add(glow)
 
+// детерминированный псевдослучай: одинаковые кадры при каждом рендере
+const rand = (s) => {
+  const x = Math.sin(s * 9301 + 49297) * 233280
+  return x - Math.floor(x)
+}
+
 // ---------- стакан навынос ----------
 const cup = new THREE.Group()
 scene.add(cup)
 
+// радиус стенки на высоте y: стакан расширяется от 0.74 у дна до 1.04 у края
+const cupR = (y) => 0.74 + ((y + 1.5) / 3) * 0.3
+
+// Бумага стакана: мята с едва заметным волокном и вертикальный шов склейки сзади.
+function paperTexture() {
+  const c = document.createElement('canvas')
+  c.width = 2048
+  c.height = 1024
+  const g = c.getContext('2d')
+  g.fillStyle = MINT
+  g.fillRect(0, 0, c.width, c.height)
+  // волокно: тонкие полупрозрачные штрихи, детерминированные через rand
+  for (let i = 0; i < 9000; i++) {
+    const x = rand(i * 3 + 1) * c.width
+    const y = rand(i * 3 + 2) * c.height
+    const light = rand(i * 3 + 3) > 0.5
+    g.fillStyle = light ? 'rgba(255,255,255,0.05)' : 'rgba(0,40,35,0.05)'
+    g.fillRect(x, y, 1 + rand(i + 7) * 5, 1)
+  }
+  // шов: узкая полоса нахлёста с тенью по краю (u = 0.75, задняя сторона стакана)
+  const sx = c.width * 0.75
+  g.fillStyle = 'rgba(0,50,45,0.08)'
+  g.fillRect(sx, 0, 3, c.height)
+  g.fillStyle = 'rgba(255,255,255,0.035)'
+  g.fillRect(sx + 3, 0, 18, c.height)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 8
+  return t
+}
+
 const profile = []
 for (let i = 0; i <= 24; i++) {
   const y = -1.5 + (i / 24) * 3
-  profile.push(new THREE.Vector2(0.74 + (i / 24) * 0.3, y))
+  profile.push(new THREE.Vector2(cupR(y), y))
 }
 const body = new THREE.Mesh(
-  new THREE.LatheGeometry(profile, 96),
-  new THREE.MeshStandardMaterial({ color: MINT, roughness: 0.42, metalness: 0.05, side: THREE.DoubleSide }),
+  new THREE.LatheGeometry(profile, 128),
+  new THREE.MeshStandardMaterial({ map: paperTexture(), roughness: 0.5, metalness: 0 }),
 )
 cup.add(body)
-const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.74, 64), body.material)
+// Внутренняя стенка с белым покрытием: видна сверху, пока стакан открыт.
+const innerProfile = profile.map((p) => new THREE.Vector2(p.x - 0.012, p.y))
+const inner = new THREE.Mesh(
+  new THREE.LatheGeometry(innerProfile, 128),
+  new THREE.MeshStandardMaterial({ color: '#E4F2EE', roughness: 0.35, side: THREE.BackSide }),
+)
+cup.add(inner)
+// Дно чуть утоплено, снизу его окружает узкий бортик, как у бумажного стакана.
+const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.73, 64), body.material)
 bottom.rotation.x = Math.PI / 2
-bottom.position.y = -1.5
+bottom.position.y = -1.44
 cup.add(bottom)
+const baseBead = new THREE.Mesh(
+  new THREE.TorusGeometry(0.742, 0.012, 10, 128),
+  new THREE.MeshStandardMaterial({ color: '#58C4AF', roughness: 0.55 }),
+)
+baseBead.rotation.x = Math.PI / 2
+baseBead.position.y = -1.488
+cup.add(baseBead)
 
+// Завальцованный край
 const rimRing = new THREE.Mesh(
-  new THREE.TorusGeometry(1.045, 0.045, 16, 96),
-  new THREE.MeshStandardMaterial({ color: '#9BE6D8', roughness: 0.3 }),
+  new THREE.TorusGeometry(1.045, 0.045, 20, 128),
+  new THREE.MeshStandardMaterial({ color: '#9BE6D8', roughness: 0.32 }),
 )
 rimRing.rotation.x = Math.PI / 2
 rimRing.position.y = 1.5
@@ -208,17 +261,43 @@ function sleeveTexture() {
   t.anisotropy = 8
   return t
 }
+// Рифление картонной манжеты: частые горизонтальные полоски для bumpMap.
+function ribTexture() {
+  const c = document.createElement('canvas')
+  c.width = 8
+  c.height = 256
+  const g = c.getContext('2d')
+  for (let y = 0; y < c.height; y++) {
+    const v = 128 + Math.round(70 * Math.sin((y / c.height) * Math.PI * 2 * 48))
+    g.fillStyle = `rgb(${v},${v},${v})`
+    g.fillRect(0, y, c.width, 1)
+  }
+  return new THREE.CanvasTexture(c)
+}
+const SLEEVE_BOTTOM = -0.55
+const SLEEVE_TOP = 0.65
 const sleeveProfile = []
 for (let i = 0; i <= 8; i++) {
-  const y = -0.55 + (i / 8) * 1.2
-  const r = 0.74 + ((y + 1.5) / 3) * 0.3 + 0.025
-  sleeveProfile.push(new THREE.Vector2(r, y))
+  const y = SLEEVE_BOTTOM + (i / 8) * (SLEEVE_TOP - SLEEVE_BOTTOM)
+  sleeveProfile.push(new THREE.Vector2(cupR(y) + 0.025, y))
 }
-const sleeve = new THREE.Mesh(
-  new THREE.LatheGeometry(sleeveProfile, 128),
-  new THREE.MeshStandardMaterial({ map: sleeveTexture(), roughness: 0.6, metalness: 0.05 }),
-)
+const sleeveMat = new THREE.MeshStandardMaterial({
+  map: sleeveTexture(),
+  bumpMap: ribTexture(),
+  bumpScale: 0.6,
+  roughness: 0.68,
+  metalness: 0,
+})
+const sleeve = new THREE.Mesh(new THREE.LatheGeometry(sleeveProfile, 128), sleeveMat)
 cup.add(sleeve)
+// у манжеты есть толщина: скруглённые кромки сверху и снизу
+const sleeveEdgeMat = new THREE.MeshStandardMaterial({ color: '#0A0D12', roughness: 0.7 })
+for (const y of [SLEEVE_BOTTOM, SLEEVE_TOP]) {
+  const edge = new THREE.Mesh(new THREE.TorusGeometry(cupR(y) + 0.013, 0.013, 8, 128), sleeveEdgeMat)
+  edge.rotation.x = Math.PI / 2
+  edge.position.y = y
+  cup.add(edge)
+}
 
 // Поверхность кофе: закрученная воронка в фирменных разводах.
 const liquidMat = swirlMaterial({ intensity: 1, polar: true })
@@ -227,26 +306,63 @@ liquid.rotation.x = -Math.PI / 2
 liquid.position.y = 1.32
 cup.add(liquid)
 
-// Крышка: падает сверху и защёлкивается.
+// Крышка: падает сверху и защёлкивается. Цельная пластиковая оболочка толщиной ~0.02:
+// утопленная середина, приподнятое кольцо с площадкой для питья, плечо над ободком
+// стакана и юбка, которая обхватывает ободок снаружи. Профиль замкнут (верх → юбка →
+// низ → центр), поэтому крышка непрозрачна с любого ракурса, в том числе снизу при падении.
 const lid = new THREE.Group()
-const lidMat = new THREE.MeshStandardMaterial({ color: '#0B0F14', roughness: 0.35, metalness: 0.2 })
-const lidProfile = [
-  new THREE.Vector2(0.0, 0.22), new THREE.Vector2(0.55, 0.22), new THREE.Vector2(0.72, 0.18),
-  new THREE.Vector2(0.86, 0.12), new THREE.Vector2(1.07, 0.06), new THREE.Vector2(1.1, -0.02),
-  new THREE.Vector2(1.07, -0.08),
-]
-lid.add(new THREE.Mesh(new THREE.LatheGeometry(lidProfile, 96), lidMat))
-const sip = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.22, 6, 16), new THREE.MeshStandardMaterial({ color: MINT, emissive: MINT, emissiveIntensity: 0.6 }))
-sip.rotation.z = Math.PI / 2
-sip.position.set(0, 0.235, 0.62)
-lid.add(sip)
+const lidMat = new THREE.MeshPhysicalMaterial({
+  color: '#0B0F14',
+  roughness: 0.42,
+  metalness: 0,
+  clearcoat: 0.5,
+  clearcoatRoughness: 0.25,
+  side: THREE.DoubleSide,
+})
+// Острые грани литой крышки: точка с флагом 1 заменяется короткой фаской из двух точек,
+// иначе LatheGeometry усредняет нормали и вся крышка выглядит надутой подушкой.
+const chamfer = (pts, e = 0.006) =>
+  pts.flatMap(([r, y, sharp], i) => {
+    if (!sharp) return [new THREE.Vector2(r, y)]
+    const p = new THREE.Vector2(r, y)
+    const toward = ([r2, y2]) => new THREE.Vector2(r2, y2).sub(p).setLength(e).add(p)
+    return [toward(pts[i - 1]), toward(pts[i + 1])]
+  })
+const lidProfile = chamfer([
+  // верх: утопленная середина, ступенька вверх на кольцо, плоское кольцо
+  [0.0, 0.085], [0.52, 0.085, 1], [0.6, 0.15, 1], [0.92, 0.15, 1],
+  // ступенька вниз на плоский уступ над ободком стакана, бусина и юбка
+  [0.975, 0.068, 1], [1.06, 0.066], [1.1, 0.05], [1.113, 0.02], [1.112, -0.042], [1.104, -0.06, 1],
+  // низ: толщина ~0.02, обратно к центру над ободком (ободок занимает y −0.065…0.025)
+  [1.093, -0.058, 1], [1.095, 0.02], [1.07, 0.046, 1], [0.96, 0.046, 1], [0.9, 0.13, 1],
+  [0.62, 0.13, 1], [0.54, 0.064, 1], [0.0, 0.064],
+])
+lid.add(new THREE.Mesh(new THREE.LatheGeometry(lidProfile, 160), lidMat))
+
+// Площадка для питья: выпуклый бугорок на кольце и тёмная прорезь в нём.
+const spout = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), lidMat)
+spout.scale.set(0.24, 0.06, 0.12)
+spout.position.set(0, 0.148, 0.76)
+lid.add(spout)
+const slotMat = new THREE.MeshStandardMaterial({ color: '#010203', roughness: 0.95 })
+const slot = new THREE.Mesh(new THREE.CapsuleGeometry(0.026, 0.17, 6, 16), slotMat)
+slot.rotation.z = Math.PI / 2
+slot.scale.set(0.35, 1, 1) // сплющена по высоте: читается как отверстие, а не как деталь
+slot.position.set(0, 0.203, 0.76)
+lid.add(slot)
+// маленькое отверстие для воздуха напротив
+const vent = new THREE.Mesh(new THREE.CircleGeometry(0.02, 20), slotMat)
+vent.rotation.x = -Math.PI / 2
+vent.position.set(0, 0.0865, -0.3)
+lid.add(vent)
+// тонкий валик по краю утопленной середины
+const deckRidge = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.007, 8, 128), lidMat)
+deckRidge.rotation.x = Math.PI / 2
+deckRidge.position.y = 0.087
+lid.add(deckRidge)
 scene.add(lid)
 
 // ---------- кофейные зёрна ----------
-const rand = (s) => {
-  const x = Math.sin(s * 9301 + 49297) * 233280
-  return x - Math.floor(x)
-}
 
 // Зерно строится из сферы: длинная ось z, выпуклая спинка снизу, плоская сторона сверху
 // с S-образной бороздкой. Бороздка вдавлена в геометрию (а не наклеена сверху), её края
