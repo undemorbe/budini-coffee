@@ -34,7 +34,7 @@ const why = [
 
 <template>
   <div ref="root">
-    <ScrollVideo :frame-count="FRAME_COUNT" :portrait="PORTRAIT" height="520vh">
+    <ScrollVideo :frame-count="FRAME_COUNT" :portrait="PORTRAIT" height="520vh" snap>
       <!-- Надписи стоят на сплошных чёрных плашках, как на обложке «Будини»: без свечения и градиентов. -->
       <div class="m m--hero" data-in="0" data-out="0.18">
         <p class="m__tag">Кофейня · ежедневно до 23:00</p>

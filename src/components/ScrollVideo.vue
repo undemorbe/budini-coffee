@@ -15,7 +15,12 @@ const props = defineProps({
   background: { type: String, default: '#050608' },
   // вертикальная версия для телефонов: { frameCount, path }. Включается на портретных экранах.
   portrait: { type: Object, default: null },
+  // доводка прокрутки: остановились внутри секции — страница доезжает до ближайшего шага
+  snap: { type: Boolean, default: false },
 })
+
+// длительность проявления и исчезания текстового момента (доля прогресса)
+const FADE = 0.075
 
 const section = ref(null)
 const stage = ref(null)
@@ -195,7 +200,6 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
     b: parseFloat(el.dataset.out ?? '1.01'),
   }))
   // мягкое появление: smoothstep по прогрессу и сдвиг с замедлением в конце
-  const FADE = 0.075
   const smooth = (x) => x * x * (3 - 2 * x)
   const updateMoments = (p) => {
     for (const m of moments) {
@@ -274,6 +278,154 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
   }
 }
 
+// Доводка прокрутки по шагам. Шаги берутся из текстовых моментов: середина участка, где
+// надпись видна полностью; у первого момента это начало секции, у последнего конец
+// (атрибут data-snap задаёт точку вручную). Когда прокрутка внутри секции остановилась,
+// включая инерцию трекпада и свайпа, страница плавно доезжает до шага по направлению
+// движения: лёгкий жест вниз ведёт к следующему шагу, почти нулевой возвращает к текущему.
+// Выше и ниже секции прокрутка обычная. Любой новый жест сразу прерывает доводку.
+const setupSnap = () => {
+  const steps = [...overlay.value.querySelectorAll('[data-in]')]
+    .map((el) => {
+      if (el.dataset.snap) return parseFloat(el.dataset.snap)
+      const a = parseFloat(el.dataset.in)
+      const b = parseFloat(el.dataset.out ?? '1.01')
+      if (a <= 0) return 0
+      if (b >= 1) return 1
+      return (a + b) / 2
+    })
+    .sort((x, y) => x - y)
+  if (!steps.length) return () => {}
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const geometry = () => {
+    const top = section.value.getBoundingClientRect().top + window.scrollY
+    return { top, range: section.value.offsetHeight - window.innerHeight }
+  }
+  // прогресс без ограничения: < 0 выше секции, > 1 ниже
+  const progressAt = (y) => {
+    const { top, range } = geometry()
+    return range > 0 ? (y - top) / range : 0
+  }
+
+  // Точка покоя (scrollY после последней доводки): от неё считается направление жеста.
+  // Позицию в момент wheel брать нельзя: Chrome прокручивает страницу на композиторе
+  // и присылает событие уже после сдвига. Пиксели, а не прогресс: геометрия секции
+  // при монтировании ещё может быть не окончательной.
+  let restY = window.scrollY
+  let glideY = restY
+  let anim = 0
+  let snapping = false
+  let ignoreUntil = 0
+  let touching = false
+  let idleTimer = 0
+
+  const pick = (p0, p1) => {
+    let cand = steps
+    if (Math.abs(p1 - p0) > 0.01) {
+      const ahead = steps.filter((s) => (p1 > p0 ? s > p0 + 0.001 : s < p0 - 0.001))
+      if (ahead.length) cand = ahead
+    }
+    return cand.reduce((best, s) => (Math.abs(s - p1) < Math.abs(best - p1) ? s : best))
+  }
+
+  const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2)
+  const glide = (toY) => {
+    const fromY = window.scrollY
+    const dist = Math.abs(toY - fromY)
+    restY = toY
+    if (dist < 2) return
+    if (reduce.matches) {
+      window.scrollTo(0, toY)
+      return
+    }
+    // чем дальше шаг, тем дольше доводка, но в разумных пределах
+    const dur = Math.min(1100, Math.max(450, 300 + dist * 0.4))
+    const t0 = performance.now()
+    snapping = true
+    const stepFrame = (now) => {
+      const k = Math.min(1, (now - t0) / dur)
+      glideY = fromY + (toY - fromY) * easeInOutCubic(k)
+      window.scrollTo(0, glideY)
+      if (k < 1) {
+        anim = requestAnimationFrame(stepFrame)
+      } else {
+        snapping = false
+        // хвостовые scroll/scrollend от собственной анимации не считаем жестом
+        ignoreUntil = performance.now() + 120
+      }
+    }
+    anim = requestAnimationFrame(stepFrame)
+  }
+
+  const settle = () => {
+    if (snapping || touching || performance.now() < ignoreUntil) return
+    const y = window.scrollY
+    const p1 = progressAt(y)
+    // вне секции и на её краях не вмешиваемся
+    if (p1 <= 0 || p1 >= 1) {
+      restY = y
+      return
+    }
+    const { top, range } = geometry()
+    glide(Math.round(top + pick(progressAt(restY), p1) * range))
+  }
+
+  // новый жест прерывает доводку; направление считаем от места, где её подхватили
+  const beginGesture = () => {
+    if (!snapping) return
+    cancelAnimationFrame(anim)
+    snapping = false
+    restY = glideY
+  }
+  const onTouchStart = () => {
+    touching = true
+    beginGesture()
+  }
+  let lastScrollAt = 0
+  const onTouchEnd = () => {
+    touching = false
+    // палец отпустили без броска: scrollend уже был (или не придёт), доводим сами;
+    // если страница ещё катится по инерции, дождёмся scrollend
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => {
+      if (performance.now() - lastScrollAt > 120) settle()
+    }, 160)
+  }
+
+  // scrollend приходит после инерции; где его нет (старый Safari), ждём паузу в scroll
+  const hasScrollEnd = 'onscrollend' in window
+  const onScroll = () => {
+    lastScrollAt = performance.now()
+    if (hasScrollEnd || snapping) return
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(settle, 150)
+  }
+
+  const opts = { passive: true }
+  window.addEventListener('wheel', beginGesture, opts)
+  window.addEventListener('keydown', beginGesture)
+  window.addEventListener('mousedown', beginGesture)
+  window.addEventListener('touchstart', onTouchStart, opts)
+  window.addEventListener('touchend', onTouchEnd, opts)
+  window.addEventListener('touchcancel', onTouchEnd, opts)
+  window.addEventListener('scroll', onScroll, opts)
+  if (hasScrollEnd) window.addEventListener('scrollend', settle)
+
+  return () => {
+    cancelAnimationFrame(anim)
+    clearTimeout(idleTimer)
+    window.removeEventListener('wheel', beginGesture, opts)
+    window.removeEventListener('keydown', beginGesture)
+    window.removeEventListener('mousedown', beginGesture)
+    window.removeEventListener('touchstart', onTouchStart, opts)
+    window.removeEventListener('touchend', onTouchEnd, opts)
+    window.removeEventListener('touchcancel', onTouchEnd, opts)
+    window.removeEventListener('scroll', onScroll, opts)
+    window.removeEventListener('scrollend', settle)
+  }
+}
+
 onMounted(() => {
   const portraitMq = window.matchMedia('(max-aspect-ratio: 4/5)')
   let stop = () => {}
@@ -288,9 +440,11 @@ onMounted(() => {
   }
   run()
   portraitMq.addEventListener('change', run)
+  const stopSnap = props.snap ? setupSnap() : () => {}
   cleanup = () => {
     portraitMq.removeEventListener('change', run)
     stop()
+    stopSnap()
   }
 })
 
