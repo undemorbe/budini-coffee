@@ -88,45 +88,38 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
     return -1
   }
 
-  // Окно заранее декодированных кадров вокруг плейхеда. drawImage берёт готовый
-  // ImageBitmap (декодирован вне главного потока), поэтому при торможении нет
-  // подвисаний на декодировании очередного кадра. Память ограничена окном.
-  const bitmaps = new Map()
-  const pendingBmp = new Set()
+  // Окно заранее декодированных кадров вокруг плейхеда: img.decode() декодирует кадр
+  // вне главного потока, поэтому drawImage при торможении не подвисает на декодировании.
+  // ImageBitmap здесь не используем: в Chrome частое создание ImageBitmap и их отрисовка
+  // в 2D canvas роняют вкладку (GPU: «Failure to deserialize transfer cache entry»).
+  const decoded = new Set()
+  const pendingDecode = new Set()
   // на телефоне окно меньше: меньше памяти, вкладку не выгрузит
   const WINDOW = light ? 10 : 16
   const KEEP = light ? 20 : 36
-  const canBitmap = typeof window.createImageBitmap === 'function'
   let lastCenter = -1
   const ensureWindow = (center) => {
-    if (!canBitmap || center === lastCenter) return
+    if (center === lastCenter) return
     lastCenter = center
-    for (const [i, b] of bitmaps) {
-      if (Math.abs(i - center) > KEEP) {
-        b.close?.()
-        bitmaps.delete(i)
-      }
-    }
+    // вышедшие из окна кадры браузер может выгрузить; при возврате декодируем заново
+    for (const i of decoded) if (Math.abs(i - center) > KEEP) decoded.delete(i)
     for (let d = 0; d <= WINDOW; d++) {
       for (const i of d ? [center + d, center - d] : [center]) {
-        if (i < 0 || i >= N || !loaded[i] || bitmaps.has(i) || pendingBmp.has(i)) continue
-        if (pendingBmp.size >= 4) return
-        pendingBmp.add(i)
-        createImageBitmap(images[i])
-          .then((b) => {
-            pendingBmp.delete(i)
-            if (destroyed || Math.abs(i - lastCenter) > KEEP) {
-              b.close?.()
-              return
-            }
-            bitmaps.set(i, b)
+        if (i < 0 || i >= N || !loaded[i] || decoded.has(i) || pendingDecode.has(i)) continue
+        if (pendingDecode.size >= 4) return
+        pendingDecode.add(i)
+        images[i]
+          .decode()
+          .then(() => {
+            pendingDecode.delete(i)
+            if (destroyed) return
+            decoded.add(i)
             lastCenter = -1 // дозаполнить окно на следующем кадре
           })
-          .catch(() => pendingBmp.delete(i))
+          .catch(() => pendingDecode.delete(i))
       }
     }
   }
-  const source = (i) => bitmaps.get(i) || images[i]
 
   // ---- размеры canvas с учётом DPR (не больше 2) ----
   let cssW = 0
@@ -165,10 +158,10 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
     const b = Math.min(a + 1, N - 1)
     const frac = current - a
     const ia = nearest(a)
-    if (ia >= 0) drawCover(source(ia), 1)
+    if (ia >= 0) drawCover(images[ia], 1)
     if (frac > 0.002) {
       const ib = nearest(b)
-      if (ib >= 0 && ib !== ia) drawCover(source(ib), frac)
+      if (ib >= 0 && ib !== ia) drawCover(images[ib], frac)
     }
     ctx.globalAlpha = 1
     if (!ready.value && ia >= 0) ready.value = true
@@ -266,7 +259,7 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
   raf = requestAnimationFrame(loop)
 
   // отладка плавности в dev-режиме: window.__sv() отдаёт состояние плейхеда
-  if (import.meta.env.DEV) window.__sv = () => ({ current, target, velocity, progress, bitmaps: bitmaps.size })
+  if (import.meta.env.DEV) window.__sv = () => ({ current, target, velocity, progress, decoded: decoded.size })
 
   return () => {
     destroyed = true
@@ -276,8 +269,7 @@ const start = ({ frameCount: N, path, stillFrame, light }) => {
     window.removeEventListener('resize', measure)
     reduce.removeEventListener('change', onReduceChange)
     queue.length = 0
-    for (const b of bitmaps.values()) b.close?.()
-    bitmaps.clear()
+    decoded.clear()
     for (const img of images) if (img) img.src = ''
   }
 }
