@@ -2,7 +2,7 @@
 import BrandMark from './BrandMark.vue'
 import SwirlBand from './SwirlBand.vue'
 import { cafes } from '../data/cafes'
-import { contacts, extraNav, mainNav } from '../data/site'
+import { brand, contacts, extraNav, mainNav } from '../data/site'
 </script>
 
 <template>
@@ -17,7 +17,7 @@ import { contacts, extraNav, mainNav } from '../data/site'
     <div class="ftr__grid wrap">
       <div class="ftr__col ftr__col--brand">
         <BrandMark />
-        <p class="ftr__lead">Кофейня, которая разбудит. Свежая обжарка, заказ за 2 минуты и кофе навынос в {{ cafes.length }} точках.</p>
+        <p class="ftr__lead">Кофейня, которая разбудит. {{ cafes.length }} кофеен в Петербурге и Кудрово, ежедневно до 23:00. Можно с животными.</p>
       </div>
 
       <nav class="ftr__col" aria-label="Гостям">
@@ -38,14 +38,15 @@ import { contacts, extraNav, mainNav } from '../data/site'
       <div class="ftr__col ftr__col--contact">
         <p class="ftr__h">Связь</p>
         <a :href="contacts.phoneHref">{{ contacts.phone }}</a>
-        <a :href="'mailto:' + contacts.email">{{ contacts.email }}</a>
-        <p class="ftr__muted">{{ contacts.hours }}</p>
+        <a :href="contacts.whatsapp" target="_blank" rel="noopener">WhatsApp</a>
+        <a :href="contacts.telegram" target="_blank" rel="noopener">Telegram</a>
+        <a :href="contacts.vk" target="_blank" rel="noopener">ВКонтакте</a>
       </div>
     </div>
 
     <div class="ftr__bottom wrap">
-      <span>© 2026 Будини Coffee</span>
-      <span>Учебный проект · UI/UX</span>
+      <span>© 2026 Будини Кофе</span>
+      <span>{{ brand.payment }}</span>
     </div>
   </footer>
 </template>

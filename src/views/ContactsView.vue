@@ -1,81 +1,53 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { ref } from 'vue'
 import FaqList from '../components/FaqList.vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
-import { contacts } from '../data/site'
+import { cafes, hoursText } from '../data/cafes'
+import { brand, contacts } from '../data/site'
 
 const root = ref(null)
 useReveal(root)
 
-const topics = ['Вопрос о заказе', 'Отзыв о кофейне', 'Сотрудничество', 'Мероприятие']
-const form = reactive({ name: '', contact: '', topic: topics[0], text: '' })
-const errors = reactive({})
-const sent = ref(false)
-
-const validate = () => {
-  errors.name = form.name.trim() ? '' : 'Как к тебе обращаться?'
-  errors.contact = /@|\d{6,}/.test(form.contact.replace(/[\s()+-]/g, '')) ? '' : 'Укажи почту или телефон, чтобы мы ответили'
-  errors.text = form.text.trim().length >= 10 ? '' : 'Напиши хотя бы пару слов (от 10 символов)'
-  return !errors.name && !errors.contact && !errors.text
-}
-const submit = () => {
-  if (validate()) sent.value = true
-}
+const channels = [
+  { label: 'WhatsApp', note: 'Быстрее всего', href: contacts.whatsapp },
+  { label: 'Telegram', note: contacts.telegramLabel, href: contacts.telegram },
+  { label: 'ВКонтакте', note: contacts.vkLabel, href: contacts.vk },
+]
 
 const faq = [
-  { q: 'Можно прийти со своей кружкой?', a: 'Да, и мы сделаем скидку 20 ₽ на любой напиток. Кружку чистим и наполняем при тебе.' },
-  { q: 'Есть ли растительное молоко?', a: 'Овсяное и кокосовое во всех кофейнях. Отметка «растительное молоко» есть в меню.' },
-  { q: 'Можно с собакой?', a: 'В кофейне на Набережной с собакой можно и на веранду, и в зал. В остальных точках только на вынос.' },
-  { q: 'Есть Wi-Fi и розетки?', a: 'Да, в зале на пр. Мира. Остальные точки работают в основном на вынос.' },
-  { q: 'Делаете кофе на мероприятия?', a: 'Да, привозим мобильный бар с бариста. Напиши через форму, выбрав тему «Мероприятие».' },
+  { q: 'Где вы находитесь?', a: cafes.map((c) => c.address).join('; ') + '.' },
+  { q: 'До скольки работаете?', a: 'Все кофейни работают ежедневно до 23:00. Открытие с 07:30 или 08:00, точное время у каждой точки на странице адресов.' },
+  { q: 'Можно с животными?', a: 'Да, с питомцами можно во все наши кофейни.' },
+  { q: 'Как можно оплатить?', a: `${brand.payment}.` },
+  { q: 'Есть кофе с собой?', a: 'Да, любой напиток можно взять с собой.' },
 ]
 </script>
 
 <template>
   <div ref="root">
-    <PageHero eyebrow="Контакты" title="Напиши нам," accent="мы не спим" lead="Вопрос, отзыв, идея для мероприятия или сотрудничество: ответим в течение рабочего дня." />
+    <PageHero eyebrow="Контакты" title="Напиши нам," accent="мы не спим" lead="Вопрос, отзыв или идея: звоните или пишите в мессенджеры. Одна линия для всех кофеен сети." />
 
-    <section class="wrap contacts" aria-label="Контакты и форма">
+    <section class="wrap contacts" aria-label="Контакты">
       <div class="info reveal">
         <a :href="contacts.phoneHref" class="info__big display">{{ contacts.phone }}</a>
-        <p class="info__row">{{ contacts.email }}</p>
-        <p class="info__row">Telegram: {{ contacts.telegram }}</p>
-        <p class="info__row">ВКонтакте: {{ contacts.vk }}</p>
-        <p class="info__row info__muted">{{ contacts.hours }}</p>
+        <p class="info__row">{{ contacts.hours }}</p>
+        <p class="info__row info__muted">{{ brand.payment }}</p>
+        <p class="info__row info__muted">Можно с животными · кофе с собой</p>
         <RouterLink to="/addresses" class="btn btn--ghost info__btn">Адреса кофеен</RouterLink>
       </div>
 
-      <form class="form reveal" novalidate @submit.prevent="submit">
-        <template v-if="!sent">
-          <label class="field">
-            <span>Имя</span>
-            <input v-model="form.name" type="text" autocomplete="name" :aria-invalid="!!errors.name" />
-            <small v-if="errors.name" class="err">{{ errors.name }}</small>
-          </label>
-          <label class="field">
-            <span>Почта или телефон</span>
-            <input v-model="form.contact" type="text" autocomplete="email" :aria-invalid="!!errors.contact" />
-            <small v-if="errors.contact" class="err">{{ errors.contact }}</small>
-          </label>
-          <fieldset class="field field--topics">
-            <legend>Тема</legend>
-            <div class="chips">
-              <button v-for="t in topics" :key="t" type="button" class="chip" :aria-pressed="form.topic === t" @click="form.topic = t">{{ t }}</button>
-            </div>
-          </fieldset>
-          <label class="field">
-            <span>Сообщение</span>
-            <textarea v-model="form.text" rows="5" :aria-invalid="!!errors.text"></textarea>
-            <small v-if="errors.text" class="err">{{ errors.text }}</small>
-          </label>
-          <button type="submit" class="btn form__btn">Отправить</button>
-        </template>
-        <div v-else class="sent" aria-live="polite">
-          <p class="sent__t display">Спасибо, {{ form.name }}!</p>
-          <p class="sent__d">Это демо-версия сайта, поэтому сообщение никуда не отправлено. В рабочей версии мы ответим на {{ form.contact }}.</p>
-        </div>
-      </form>
+      <div class="form reveal">
+        <p class="form__t display">Написать</p>
+        <a v-for="c in channels" :key="c.label" :href="c.href" target="_blank" rel="noopener" class="channel">
+          <span class="channel__label display">{{ c.label }}</span>
+          <span class="channel__note">{{ c.note }}</span>
+          <span class="channel__arrow" aria-hidden="true">↗</span>
+        </a>
+        <ul class="hours">
+          <li v-for="c in cafes" :key="c.id"><span>{{ c.street }}</span><span>{{ hoursText(c) }}</span></li>
+        </ul>
+      </div>
     </section>
 
     <section class="wrap cfaq" aria-labelledby="cfaq-title">
@@ -124,75 +96,62 @@ const faq = [
   border: 1px solid var(--line);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: 0;
+.form__t {
+  margin: 0 0 4px;
+  font-size: 22px;
 }
 
-.field span,
-.field legend {
-  font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.field--topics legend {
-  margin-bottom: 10px;
-}
-
-.field input,
-.field textarea {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 14px;
+.channel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--ink);
   color: var(--text);
-  font: inherit;
-  resize: vertical;
   transition: border-color 0.4s var(--ease);
 }
 
-.field input:focus,
-.field textarea:focus {
-  outline: none;
-  border-color: var(--mint);
+@media (hover: hover) {
+  .channel:hover {
+    border-color: var(--mint);
+  }
 }
 
-.field [aria-invalid='true'] {
-  border-color: #e58a7a;
+.channel__label {
+  font-size: 18px;
 }
 
-.err {
-  color: #e58a7a;
-  font-size: 13px;
+.channel__note {
+  grid-row: 2;
+  font-size: 14px;
+  color: var(--muted);
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.form__btn {
-  align-self: flex-start;
-}
-
-.sent__t {
-  margin: 0 0 10px;
-  font-size: 28px;
+.channel__arrow {
+  grid-row: 1 / 3;
+  grid-column: 2;
+  font-size: 20px;
   color: var(--mint);
 }
 
-.sent__d {
-  margin: 0;
+.hours {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
   color: var(--muted);
+}
+
+.hours li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
 }
 
 .cfaq {

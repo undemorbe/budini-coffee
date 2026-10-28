@@ -35,7 +35,7 @@ const allLinks = [{ to: '/', label: 'Главная' }, ...mainNav, ...extraNav]
   <a class="skip" href="#main">К содержимому</a>
   <header class="hdr" :class="{ 'hdr--solid': solid || open }">
     <div class="hdr__in wrap">
-      <RouterLink to="/" class="hdr__brand" aria-label="Будини Coffee, на главную">
+      <RouterLink to="/" class="hdr__brand" aria-label="Будини Кофе, на главную">
         <BrandMark compact />
       </RouterLink>
 

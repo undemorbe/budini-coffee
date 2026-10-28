@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import FaqList from '../components/FaqList.vue'
+import ConceptNote from '../components/ConceptNote.vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
 
@@ -40,6 +41,7 @@ const faq = [
       accent="бодрое утро"
       lead="Электронный сертификат на любую сумму: его можно потратить на напитки, выпечку и зерно во всех кофейнях «Будини»."
     />
+    <ConceptNote />
 
     <section class="gift wrap" aria-label="Оформление сертификата">
       <div class="preview reveal" :class="'preview--' + design" aria-hidden="true">

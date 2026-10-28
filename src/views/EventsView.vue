@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import ConceptNote from '../components/ConceptNote.vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
 
@@ -8,10 +9,10 @@ useReveal(root)
 
 // Демо-расписание: даты и места условные.
 const events = ref([
-  { id: 'cupping', day: '07', month: 'нояб', time: '19:00', title: 'Каппинг новых лотов', place: 'пр. Мира, 45', price: 'Бесплатно', seats: 4, desc: 'Пробуем три новых зерна вслепую и выбираем, какое пойдёт в эспрессо-бленд зимы.', joined: false },
-  { id: 'latteart', day: '14', month: 'нояб', time: '11:00', title: 'Мастер-класс по латте-арту', place: 'пр. Мира, 45', price: '1 500 ₽', seats: 6, desc: 'Сердце, тюльпан и розетта: два часа у кофемашины с нашим тренером, кофе включён.', joined: false },
-  { id: 'filter', day: '21', month: 'нояб', time: '20:00', title: 'Ночь фильтра', place: 'Набережная, 8', price: '700 ₽', seats: 12, desc: 'Воронка, аэропресс и кемекс: сравниваем способы заваривания одного и того же зерна.', joined: false },
-  { id: 'kids', day: '29', month: 'нояб', time: '12:00', title: 'Какао-лаборатория для детей', place: 'ул. Ленина, 12', price: '500 ₽', seats: 0, desc: 'Варим какао, рисуем на пене и узнаём, откуда берутся какао-бобы. Для детей 6-12 лет.', joined: false },
+  { id: 'cupping', day: '07', month: 'нояб', time: '19:00', title: 'Каппинг новых лотов', place: 'пр. Испытателей, 5', price: 'Бесплатно', seats: 4, desc: 'Пробуем три новых зерна вслепую и выбираем, какое пойдёт в эспрессо-бленд зимы.', joined: false },
+  { id: 'latteart', day: '14', month: 'нояб', time: '11:00', title: 'Мастер-класс по латте-арту', place: 'пр. Испытателей, 5', price: '1 500 ₽', seats: 6, desc: 'Сердце, тюльпан и розетта: два часа у кофемашины с нашим тренером, кофе включён.', joined: false },
+  { id: 'filter', day: '21', month: 'нояб', time: '20:00', title: 'Ночь фильтра', place: 'Лиговский пр., 44', price: '700 ₽', seats: 12, desc: 'Воронка, аэропресс и кемекс: сравниваем способы заваривания одного и того же зерна.', joined: false },
+  { id: 'kids', day: '29', month: 'нояб', time: '12:00', title: 'Какао-лаборатория для детей', place: 'Коломяжский пр., 15к2', price: '500 ₽', seats: 0, desc: 'Варим какао, рисуем на пене и узнаём, откуда берутся какао-бобы. Для детей 6-12 лет.', joined: false },
 ])
 
 const join = (e) => {
@@ -31,6 +32,7 @@ const seatsText = (n) => (n === 0 ? 'Мест нет' : n === 1 ? 'Остало�
       accent="мастер-классы"
       lead="Раз в неделю собираемся у кофемашины: пробуем новые зёрна, учимся латте-арту и варим фильтр. Приходи, места ограничены."
     />
+    <ConceptNote />
 
     <section class="wrap ev" aria-label="Ближайшие события">
       <article v-for="(e, i) in events" :key="e.id" class="ev__item reveal" :style="{ '--d': i * 0.07 + 's' }">

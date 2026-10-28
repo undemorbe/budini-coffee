@@ -2,35 +2,32 @@
 import { ref } from 'vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
+import { cafes, hoursText } from '../data/cafes'
+import { menu } from '../data/menu'
+import { allItems } from '../domain/menu/getMenu'
+import { brand } from '../data/site'
 
 const root = ref(null)
 useReveal(root)
 
+const season = menu.find((c) => c.isSeasonal)
 const stats = [
-  { v: '4', l: 'кофейни в городе' },
-  { v: '14', l: 'дней максимум от обжарки до чашки' },
-  { v: '2', l: 'минуты на заказ' },
-  { v: '7:30', l: 'открываемся каждый день' },
+  { v: String(cafes.length), l: 'кофеен в Петербурге и Кудрово' },
+  { v: '23:00', l: 'закрываемся каждый день' },
+  { v: String(allItems(menu).length), l: 'позиций в меню' },
+  season ? { v: String(season.items.length), l: 'осенних новинок' } : { v: String(menu.length), l: 'разделов меню' },
 ]
 
-const path = [
-  { t: 'Зерно', d: 'Покупаем зелёное зерно небольшими лотами из Бразилии, Эфиопии и Колумбии у проверенных импортёров.' },
-  { t: 'Обжарка', d: 'Обжариваем раз в неделю у партнёров-обжарщиков: средняя обжарка для эспрессо, светлая для фильтра.' },
-  { t: 'Настройка', d: 'Каждое утро бариста настраивают помол и пробуют эспрессо, прежде чем открыть двери.' },
-  { t: 'Чашка', d: 'Готовим по единым рецептам, чтобы твой латте был одинаковым в любой из наших кофеен.' },
-]
-
-const story = [
-  { y: '2021', t: 'Окно навынос у метро', d: 'Первая точка «Будини»: два метра стойки, одна кофемашина и очередь из соседних офисов.' },
-  { y: '2022', t: 'Мятный раф', d: 'Придумали фирменный напиток, который до сих пор заказывают чаще всего.' },
-  { y: '2024', t: 'Большой зал на Мира', d: 'Открыли кофейню, где можно остаться: розетки, Wi-Fi и десерты от своего пекаря.' },
-  { y: '2026', t: 'Предзаказ «Будильник»', d: 'Запустили заказ к нужному времени, чтобы утро начиналось без очереди.' },
-]
+// разделы меню (без сезонного, он в цифрах выше)
+const path = menu.filter((c) => !c.isSeasonal).slice(0, 4).map((c) => ({
+  t: c.title,
+  d: c.items.slice(0, 3).map((i) => i.name).join(', ') + (c.items.length > 3 ? ' и другое.' : '.'),
+}))
 
 const values = [
-  { t: 'Быстро, но не на бегу', d: 'Скорость важна, но каждый напиток проходит по рецепту, без компромиссов во вкусе.' },
-  { t: 'Честный состав', d: 'У каждого напитка в меню видно бодрость, состав и можно ли заменить молоко на растительное.' },
-  { t: 'Своя команда', d: 'Бариста учатся у нас с нуля, лучшие становятся тренерами и шифт-лидерами.' },
+  { t: 'Можно с животными', d: 'Приходите с питомцами в любую из наших кофеен.' },
+  { t: 'Кофе с собой', d: 'Любой напиток из меню можно взять навынос.' },
+  { t: 'Удобная оплата', d: `${brand.payment}.` },
 ]
 </script>
 
@@ -40,7 +37,7 @@ const values = [
       eyebrow="О нас"
       title="Кофейня, которая"
       accent="будит"
-      lead="«Будини» начиналась с окна навынос у метро. Сейчас это четыре кофейни, свежая обжарка каждую неделю и команда, которая знает тебя по любимому напитку."
+      lead="«Будини Кофе»: пять кофеен в Петербурге и Кудрово. Классика, авторские напитки, бабл ти и выпечка, ежедневно до 23:00."
     />
 
     <section class="stats wrap" aria-label="Будини в цифрах">
@@ -52,7 +49,7 @@ const values = [
 
     <section class="band" aria-labelledby="path-title">
       <div class="wrap">
-        <h2 id="path-title" class="display sec__title reveal">От зерна <span class="neon">до чашки</span></h2>
+        <h2 id="path-title" class="display sec__title reveal">Что <span class="neon">в меню</span></h2>
         <ol class="path">
           <li v-for="(p, i) in path" :key="p.t" class="path__item reveal" :style="{ '--d': i * 0.1 + 's' }">
             <span class="path__n">0{{ i + 1 }}</span>
@@ -64,20 +61,20 @@ const values = [
     </section>
 
     <section class="wrap story" aria-labelledby="story-title">
-      <h2 id="story-title" class="display sec__title reveal">История</h2>
+      <h2 id="story-title" class="display sec__title reveal">Где <span class="neon">мы</span></h2>
       <ol class="story__list">
-        <li v-for="s in story" :key="s.y" class="story__item reveal">
-          <span class="story__y display">{{ s.y }}</span>
+        <li v-for="(c, i) in cafes" :key="c.id" class="story__item reveal">
+          <span class="story__y display">0{{ i + 1 }}</span>
           <div>
-            <h3 class="story__t">{{ s.t }}</h3>
-            <p class="story__d">{{ s.d }}</p>
+            <h3 class="story__t">{{ c.address }}</h3>
+            <p class="story__d">{{ [c.landmark, hoursText(c)].filter(Boolean).join(' · ') }}</p>
           </div>
         </li>
       </ol>
     </section>
 
     <section class="wrap values" aria-labelledby="values-title">
-      <h2 id="values-title" class="display sec__title reveal">Во что <span class="neon">верим</span></h2>
+      <h2 id="values-title" class="display sec__title reveal">Гостям <span class="neon">удобно</span></h2>
       <div class="values__grid">
         <article v-for="(v, i) in values" :key="v.t" class="value reveal" :style="{ '--d': i * 0.1 + 's' }">
           <h3 class="value__t">{{ v.t }}</h3>
@@ -85,8 +82,8 @@ const values = [
         </article>
       </div>
       <div class="cta reveal">
-        <p class="cta__t display">Хочешь в команду?</p>
-        <RouterLink to="/careers" class="btn">Смотреть вакансии</RouterLink>
+        <p class="cta__t display">Заходите в гости</p>
+        <RouterLink to="/addresses" class="btn">Адреса кофеен</RouterLink>
       </div>
     </section>
   </div>

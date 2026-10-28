@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import FaqList from '../components/FaqList.vue'
+import ConceptNote from '../components/ConceptNote.vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
 
@@ -37,6 +38,7 @@ const faq = [
       accent="в подарок"
       lead="Никаких баллов и процентов: просто считаем чашки. Пей кофе в любой кофейне «Будини», а десятый мы угостим."
     />
+    <ConceptNote />
 
     <section class="card-demo wrap" aria-labelledby="demo-title">
       <div class="card reveal">

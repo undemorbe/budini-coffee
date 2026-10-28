@@ -6,13 +6,13 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import '@fontsource/unbounded/700.css'
 
-// Параметры из адреса: /render.html?w=720&h=1280&fov=56&frames=150 рендерит вертикальную
+// Параметры из адреса: /render.html?w=720&h=1280&fov=56&frames=225 рендерит вертикальную
 // версию для телефонов. Без параметров получается основная 16:9.
 const q = new URLSearchParams(location.search)
 const W = Number(q.get('w')) || 1600
 const H = Number(q.get('h')) || 900
 const FOV = Number(q.get('fov')) || 35
-const FRAMES = Number(q.get('frames')) || 300
+const FRAMES = Number(q.get('frames')) || 450
 // shift > 0 поднимает объект в кадре (доля высоты): на телефоне снизу стоят плашки с текстом
 const SHIFT = Number(q.get('shift')) || 0
 
@@ -352,6 +352,11 @@ for (let i = 0; i < 9; i++) {
 const clamp01 = (v) => Math.min(1, Math.max(0, v))
 const seg = (t, a, b) => clamp01((t - a) / (b - a))
 const smoother = (x) => x * x * x * (x * (x * 6 - 15) + 10)
+// ∫₀ᵗ smoother(seg(s, a, b)) ds в замкнутом виде (первообразная smoother: x⁶ − 3x⁵ + 2.5x⁴)
+const smootherArea = (t, a, b) => {
+  const x = seg(t, a, b)
+  return (b - a) * x * x * x * x * (x * (x - 3) + 2.5) + Math.max(0, t - b)
+}
 const easeInOutSine = (x) => -(Math.cos(Math.PI * x) - 1) / 2
 const lerp = (a, b, k) => a + (b - a) * k
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z)
@@ -401,12 +406,18 @@ function update(t) {
 
   // зёрна проявляются (растут из нуля) и по спирали подлетают к стакану
   const grow = smoother(seg(t, 0.12, 0.34))
-  const kin = smoother(seg(t, 0.14, 0.64))
+  const kin = smoother(seg(t, 0.08, 0.66))
+  // Угловая скорость орбиты падает с 0.3 до 0.22 по мере подлёта. Фазу берём интегралом
+  // скорости: если умножить time на меняющуюся скорость, производная произведения даёт
+  // всплеск в середине подлёта. Скорости подобраны так, чтобы зерно смещалось на экране
+  // не больше ~10 px за кадр: иначе смешивание соседних кадров в ScrollVideo даёт двоение.
+  const orbit = 8 * (0.3 * t - 0.08 * smootherArea(t, 0.08, 0.66))
   for (const b of beans) {
     const d = b.userData
-    const r = lerp(8 + d.r * 1.6, d.r, kin)
-    const a = d.a0 + time * d.spd * (1.1 - 0.7 * kin)
-    b.position.set(Math.cos(a) * r, lerp(d.y + 3, d.y, kin) + Math.sin(time * 1.1 + d.a0) * 0.1, Math.sin(a) * r)
+    // стартовый радиус и высота небольшие: при дальнем подлёте зёрна проносились у самой камеры
+    const r = lerp(0.8 + d.r * 1.4, d.r, kin)
+    const a = d.a0 + orbit * d.spd
+    b.position.set(Math.cos(a) * r, lerp(d.y + 0.6, d.y, kin) + Math.sin(time * 1.1 + d.a0) * 0.1, Math.sin(a) * r)
     b.rotation.set(d.spin.x * time * 0.15, d.spin.y * time * 0.15, d.spin.z * time * 0.15)
     b.scale.setScalar(d.s * Math.max(grow, 0.0001))
     b.visible = grow > 0.001

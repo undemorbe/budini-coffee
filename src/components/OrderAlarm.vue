@@ -1,38 +1,41 @@
 <script setup>
-// «Будильник»: предзаказ к нужному времени. Демо без оплаты и отправки на сервер.
+// «Будильник»: предзаказ к нужному времени. Демо без оплаты и отправки на сервер:
+// заказ появится, когда подключим бэкенд.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 // bare: без собственного заголовка (на странице /order заголовок даёт PageHero)
 const props = defineProps({ bare: { type: Boolean, default: false } })
 import { cafes } from '../data/cafes'
-import { menu, sizes } from '../data/menu'
+import { menu } from '../data/menu'
+import { findItem } from '../domain/menu/getMenu'
 
-const drinks = menu.filter((m) => ['cappuccino', 'latte', 'mintraf', 'americano', 'budilnik', 'coldbrew'].includes(m.id))
-const drinkId = ref('mintraf')
-const sizeId = ref('M')
-// кофейню можно передать из страницы адресов: /order?cafe=mira
+// напитки для быстрого заказа: осенняя новинка (если сезон идёт) и классика
+const drinks = ['pumpkin_latte', 'cappuccino', 'latte', 'raf', 'americano', 'flat_white'].map((id) => findItem(menu, id)).filter(Boolean)
+const drinkId = ref(drinks[0].id)
+const volumeIdx = ref(0)
+// кофейню можно передать из страницы адресов: /order?cafe=ispytateley_5
 const route = useRoute()
 const cafeId = ref(cafes.some((c) => c.id === route.query.cafe) ? route.query.cafe : cafes[0].id)
 const slot = ref('soon')
-const milk = ref('Обычное')
 const done = ref(false)
 
 const drink = computed(() => drinks.find((d) => d.id === drinkId.value))
-const sizeOptions = computed(() => sizes.map((s, i) => ({ ...s, price: drink.value.prices[i] })).filter((s) => s.price != null))
+const volume = computed(() => drink.value.volumes[volumeIdx.value] ?? drink.value.volumes[0])
 watch(drinkId, () => {
-  if (!sizeOptions.value.some((s) => s.id === sizeId.value)) sizeId.value = sizeOptions.value[0].id
+  volumeIdx.value = drink.value.volumes.length >= 3 ? 1 : 0
   done.value = false
 })
-watch([sizeId, cafeId, slot, milk], () => {
+watch([volumeIdx, cafeId, slot], () => {
   done.value = false
 })
+volumeIdx.value = drink.value.volumes.length >= 3 ? 1 : 0
 
 const cafe = computed(() => cafes.find((c) => c.id === cafeId.value))
 const pad = (n) => String(n).padStart(2, '0')
 const slots = computed(() => {
   const now = new Date()
-  const soon = new Date(now.getTime() + (cafe.value.wait + 6) * 60000)
+  const soon = new Date(now.getTime() + 15 * 60000)
   const list = [{ id: 'soon', label: `Как можно скорее · ${pad(soon.getHours())}:${pad(soon.getMinutes())}` }]
   // ближайшие получасовые слоты
   const t = new Date(now.getTime() + 30 * 60000)
@@ -44,10 +47,7 @@ const slots = computed(() => {
   return list
 })
 const slotLabel = computed(() => slots.value.find((s) => s.id === slot.value)?.label.replace('Как можно скорее · ', '') ?? '')
-const price = computed(() => {
-  const base = sizeOptions.value.find((s) => s.id === sizeId.value)?.price ?? 0
-  return base + (milk.value === 'Обычное' ? 0 : 50)
-})
+const price = computed(() => volume.value.price)
 
 // Телефон: билет с итогом стоит под четырьмя шагами, поэтому, пока шаги на экране,
 // а билет нет, снизу держим компактную панель с ценой и кнопкой.
@@ -87,17 +87,14 @@ const submitFromBar = () => {
         <fieldset class="step reveal">
           <legend><span>01</span> Напиток</legend>
           <div class="chips">
-            <button v-for="d in drinks" :key="d.id" type="button" class="chip" :aria-pressed="drinkId === d.id" @click="drinkId = d.id">{{ d.name }}</button>
+            <button v-for="d in drinks" :key="d.id" type="button" class="chip" :aria-pressed="drinkId === d.id" @click="drinkId = d.id"><template v-if="d.emoji">{{ d.emoji }} </template>{{ d.name }}</button>
           </div>
         </fieldset>
 
         <fieldset class="step reveal">
-          <legend><span>02</span> Размер и молоко</legend>
+          <legend><span>02</span> Объём</legend>
           <div class="chips">
-            <button v-for="s in sizeOptions" :key="s.id" type="button" class="chip" :aria-pressed="sizeId === s.id" @click="sizeId = s.id">{{ s.id }} · {{ s.ml }} мл</button>
-          </div>
-          <div class="chips" v-if="drink.plant">
-            <button v-for="m in ['Обычное', 'Овсяное', 'Кокосовое']" :key="m" type="button" class="chip" :aria-pressed="milk === m" @click="milk = m">{{ m }}<template v-if="m !== 'Обычное'"> +50 ₽</template></button>
+            <button v-for="(v, i) in drink.volumes" :key="v.ml" type="button" class="chip" :aria-pressed="volume.ml === v.ml" @click="volumeIdx = i">{{ v.label }} · {{ v.price }} ₽</button>
           </div>
         </fieldset>
 
@@ -107,7 +104,7 @@ const submitFromBar = () => {
             <label v-for="c in cafes" :key="c.id" class="cafe" :class="{ on: cafeId === c.id }">
               <input v-model="cafeId" type="radio" name="cafe" :value="c.id" class="sr-only" />
               <span class="cafe__name">{{ c.street }}</span>
-              <span class="cafe__wait">ожидание около {{ c.wait }} мин</span>
+              <span class="cafe__wait">{{ c.landmark || c.city }}</span>
             </label>
           </div>
         </fieldset>
@@ -122,12 +119,12 @@ const submitFromBar = () => {
 
       <aside ref="ticket" class="ticket reveal" aria-live="polite">
         <div class="ticket__clock display neon">{{ slotLabel }}</div>
-        <p class="ticket__line">{{ drink.name }} · {{ sizeId }}<template v-if="drink.plant && milk !== 'Обычное'"> · на {{ milk.toLowerCase() }}</template></p>
-        <p class="ticket__line ticket__muted">{{ cafe.street }}</p>
+        <p class="ticket__line">{{ drink.name }} · {{ volume.label }}</p>
+        <p class="ticket__line ticket__muted">{{ cafe.street }}, {{ cafe.city }}</p>
         <div class="ticket__sep" aria-hidden="true"></div>
         <p class="ticket__total"><span>Итого</span><strong>{{ price }} ₽</strong></p>
         <button v-if="!done" type="button" class="btn ticket__btn" @click="done = true">Завести будильник</button>
-        <p v-else class="ticket__done">Будильник заведён. Это демо-версия сайта, поэтому заказ никуда не отправлен.</p>
+        <p v-else class="ticket__done">Это демо: онлайн-предзаказ появится в рабочей версии сайта, заказ никуда не отправлен.</p>
       </aside>
     </div>
 

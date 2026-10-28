@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { cafes, hoursText, openState } from '../data/cafes'
+import { brand } from '../data/site'
 
 const route = useRoute()
 const selected = ref(cafes[0].id)
@@ -13,71 +14,27 @@ onMounted(() => {
   const h = route.hash.replace('#', '')
   if (cafes.some((c) => c.id === h)) selected.value = h
 })
-
-// схематичная «ночная» карта: детерминированная сетка улиц
-const streets = []
-let seed = 7
-const rnd = () => {
-  seed = (seed * 16807) % 2147483647
-  return seed / 2147483647
-}
-// почти прямые проспекты и улицы с лёгким наклоном, как на ночной схеме города
-for (let i = 0; i < 9; i++) {
-  const x = 6 + i * 11 + (rnd() - 0.5) * 5
-  streets.push({ x1: x, y1: 0, x2: x + (rnd() - 0.5) * 8, y2: 70, w: i % 3 === 1 ? 0.9 : 0.35 })
-}
-for (let i = 0; i < 7; i++) {
-  const y = 5 + i * 10 + (rnd() - 0.5) * 4
-  streets.push({ x1: 0, y1: y, x2: 100, y2: y + (rnd() - 0.5) * 7, w: i % 3 === 2 ? 0.9 : 0.35 })
-}
-streets.push({ x1: 0, y1: 8, x2: 100, y2: 62, w: 0.7 })
 </script>
 
 <template>
   <div class="addr">
     <header class="addr__hero wrap">
       <p class="eyebrow">Адреса</p>
-      <h1 class="display addr__title">{{ cafes.length }} точки, где тебя <span class="neon">разбудят</span></h1>
-      <p class="addr__lead">Выбери кофейню на карте или в списке: покажем часы работы, время ожидания заказа и что там есть.</p>
+      <h1 class="display addr__title">{{ cafes.length }} кофеен, где тебя <span class="neon">разбудят</span></h1>
+      <p class="addr__lead">Санкт-Петербург и Кудрово. Выбери кофейню в списке: покажем её на карте, часы работы и как добраться.</p>
     </header>
 
     <div class="addr__body wrap">
-      <div class="map" role="img" :aria-label="`Схема города с кофейнями. Выбрана: ${current.street}`">
-        <svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
-          <rect width="100" height="70" fill="#0a0e12" />
-          <path d="M-5 52 C 20 40, 30 66, 52 55 S 80 30, 105 44 L 105 58 C 82 46, 70 70, 50 68 S 18 58, -5 66 Z" fill="#0f2a29" />
-          <path d="M-5 52 C 20 40, 30 66, 52 55 S 80 30, 105 44" fill="none" stroke="#1e6e69" stroke-width="0.4" />
-          <circle cx="22" cy="18" r="7" fill="#0f1a17" />
-          <circle cx="86" cy="12" r="5" fill="#0f1a17" />
-          <line
-            v-for="(s, i) in streets"
-            :key="i"
-            :x1="s.x1"
-            :y1="s.y1"
-            :x2="s.x2"
-            :y2="s.y2"
-            stroke="#1c252b"
-            :stroke-width="s.w"
-          />
-          <g v-for="c in cafes" :key="c.id" class="pin" :class="{ on: c.id === selected }" :transform="`translate(${c.x} ${c.y * 0.7})`">
-            <circle class="pin__pulse" r="4" />
-            <circle class="pin__dot" r="1.6" />
-            <text class="pin__label" y="-3.2" text-anchor="middle">{{ c.street }}</text>
-          </g>
-        </svg>
-        <div class="map__pins">
-          <button
-            v-for="c in cafes"
-            :key="c.id"
-            type="button"
-            class="map__hit"
-            :style="{ left: c.x + '%', top: c.y + '%' }"
-            :aria-label="`Выбрать ${c.street}`"
-            :aria-pressed="c.id === selected"
-            @click="selected = c.id"
-          ></button>
-        </div>
-        <p class="map__note">Схема условная, адреса демонстрационные</p>
+      <div class="map">
+        <!-- Карта Яндекса с карточкой выбранной кофейни; без ключа API, по id организации -->
+        <iframe
+          :key="current.id"
+          class="map__frame"
+          :src="current.mapUrl"
+          :title="`Карта: Будини Кофе, ${current.address}`"
+          loading="lazy"
+          allowfullscreen
+        ></iframe>
       </div>
 
       <div class="side">
@@ -91,23 +48,27 @@ streets.push({ x1: 0, y1: 8, x2: 100, y2: 62, w: 0.7 })
           <li v-for="c in list" :id="c.id" :key="c.id">
             <button type="button" class="item" :aria-pressed="c.id === selected" @click="selected = c.id">
               <span class="item__street display">{{ c.street }}</span>
-              <span class="item__note">{{ c.note }}</span>
+              <span class="item__note">{{ c.landmark || c.city }}</span>
               <span class="item__state" :class="{ open: openState(c).open }">{{ openState(c).label }}</span>
             </button>
           </li>
-          <li v-if="!list.length" class="list__empty">Сейчас все кофейни закрыты. Самая ранняя открывается в 7:00.</li>
+          <li v-if="!list.length" class="list__empty">Сейчас все кофейни закрыты. Самые ранние открываются в 07:30.</li>
         </ul>
 
         <article class="detail" aria-live="polite">
           <p class="eyebrow">Выбрано</p>
-          <h2 class="detail__name display">{{ current.name }}</h2>
-          <p class="detail__row">{{ current.street }}</p>
+          <h2 class="detail__name display">{{ current.street }}</h2>
+          <p class="detail__row">{{ current.address }}</p>
+          <p v-if="current.landmark" class="detail__row">{{ current.landmark }}</p>
+          <p v-if="current.entrance" class="detail__row">{{ current.entrance }}</p>
           <p class="detail__row detail__muted">{{ hoursText(current) }}</p>
-          <p class="detail__row">Ожидание заказа сейчас: около {{ current.wait }} мин</p>
           <ul class="detail__tags">
-            <li v-for="f in current.features" :key="f">{{ f }}</li>
+            <li v-for="f in brand.amenities" :key="f">{{ f }}</li>
           </ul>
-          <RouterLink :to="{ path: '/order', query: { cafe: current.id } }" class="btn detail__btn">Заказать сюда</RouterLink>
+          <div class="detail__actions">
+            <a :href="current.yandexUrl" target="_blank" rel="noopener" class="btn detail__btn">Как добраться</a>
+            <RouterLink :to="{ path: '/order', query: { cafe: current.id } }" class="btn btn--ghost detail__btn">Заказать сюда</RouterLink>
+          </div>
         </article>
       </div>
     </div>
@@ -148,73 +109,18 @@ streets.push({ x1: 0, y1: 8, x2: 100, y2: 62, w: 0.7 })
   border: 1px solid var(--line);
 }
 
-.map svg {
+.map__frame {
+  display: block;
   width: 100%;
   height: 100%;
-}
-
-.pin__pulse {
-  fill: rgba(102, 212, 190, 0.18);
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0;
-}
-
-.pin__dot {
-  fill: var(--muted);
-  transition: fill 0.3s;
-}
-
-.pin__label {
-  font-family: var(--font-body);
-  font-size: 2.2px;
-  fill: var(--muted);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.pin.on .pin__dot {
-  fill: var(--mint);
-}
-
-.pin.on .pin__label {
-  opacity: 1;
-  fill: var(--pale);
-}
-
-.pin.on .pin__pulse {
-  opacity: 1;
-  animation: ping 2.4s var(--ease) infinite;
-}
-
-@keyframes ping {
-  from { transform: scale(0.4); opacity: 0.9; }
-  to { transform: scale(2.2); opacity: 0; }
-}
-
-.map__pins {
-  position: absolute;
-  inset: 0;
-}
-
-.map__hit {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
   border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
+  background: var(--ink-2);
 }
 
-.map__note {
-  position: absolute;
-  left: 16px;
-  bottom: 12px;
-  margin: 0;
-  font-size: 12px;
-  color: var(--muted);
+.detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .side {
@@ -370,7 +276,7 @@ streets.push({ x1: 0, y1: 8, x2: 100, y2: 62, w: 0.7 })
 }
 
 .detail__btn {
-  width: 100%;
+  flex: 1 1 160px;
 }
 
 @media (max-width: 900px) {
@@ -380,6 +286,9 @@ streets.push({ x1: 0, y1: 8, x2: 100, y2: 62, w: 0.7 })
   .map {
     position: relative;
     top: 0;
+    aspect-ratio: 4 / 5; /* карточке организации в виджете нужна высота */
+    max-height: 70svh;
+    width: 100%;
   }
 }
 </style>

@@ -1,4 +1,5 @@
-# Сборка и публикация на GitHub Pages при каждом push в main (и вручную из вкладки Actions).
+# Сборка и публикация на GitHub Pages при пуше в main.
+# В настройках репозитория: Settings → Pages → Source: GitHub Actions.
 name: Deploy to GitHub Pages
 
 on:
@@ -11,7 +12,6 @@ permissions:
   pages: write
   id-token: write
 
-# Одновременно идёт только один деплой; свежий push отменяет устаревший.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -20,28 +20,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
-
-      - id: pages
-        uses: actions/configure-pages@v5
-
       - run: npm ci
-
-      # base_path: «/budini-coffee» для username.github.io/budini-coffee, пустой для своего домена
-      - run: npm run build
-        env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
-
-      # SPA на createWebHistory: Pages отдаёт 404.html на любой неизвестный путь,
-      # копия index.html поднимает приложение, и роутер открывает нужную страницу.
-      - run: cp dist/index.html dist/404.html
-
-      - uses: actions/upload-pages-artifact@v4
+      - run: npm test
+      - name: Build
+        run: |
+          # сайт пользователя (<имя>.github.io) живёт в корне, остальные репозитории в подпапке
+          REPO="${{ github.event.repository.name }}"
+          if [[ "$REPO" == *.github.io ]]; then export BASE_PATH=/; else export BASE_PATH="/$REPO/"; fi
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 

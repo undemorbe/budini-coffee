@@ -1,39 +1,26 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import DrinkCard from '../components/DrinkCard.vue'
-import { buzzLabel, categories, menu } from '../data/menu'
+import { menu } from '../data/menu'
+import { filterMenuByTags, allItems } from '../domain/menu/getMenu'
+import { FILTER_TAGS, tagLabel } from '../domain/menu/models'
 
-const filters = ref({ decaf: false, plant: false, cold: false, isNew: false })
-const buzz = ref(null) // выбранный уровень бодрости или null
-const filterList = [
-  { key: 'decaf', label: 'Без кофеина' },
-  { key: 'plant', label: 'На растительном молоке' },
-  { key: 'cold', label: 'Холодное' },
-  { key: 'isNew', label: 'Новинки' },
-]
-
-const visible = computed(() =>
-  menu.filter((m) => {
-    const f = filters.value
-    if (f.decaf && m.buzz !== 0) return false
-    if (f.plant && !m.plant) return false
-    if (f.cold && !m.cold) return false
-    if (f.isNew && !m.isNew) return false
-    if (buzz.value !== null && m.buzz !== buzz.value) return false
-    return true
-  }),
-)
-const groups = computed(() =>
-  categories.map((c) => ({ ...c, items: visible.value.filter((m) => m.cat === c.id) })).filter((g) => g.items.length),
-)
-const anyFilter = computed(() => Object.values(filters.value).some(Boolean) || buzz.value !== null)
+// выбранные теги: позиция должна подходить под все
+const tags = ref([])
+const toggleTag = (id) => {
+  tags.value = tags.value.includes(id) ? tags.value.filter((t) => t !== id) : [...tags.value, id]
+  observeAgain()
+}
 const reset = () => {
-  filters.value = { decaf: false, plant: false, cold: false, isNew: false }
-  buzz.value = null
+  tags.value = []
+  observeAgain()
 }
 
+const groups = computed(() => filterMenuByTags(menu, tags.value))
+const count = computed(() => allItems(groups.value).length)
+
 // подсветка активной категории в липкой навигации
-const active = ref(categories[0].id)
+const active = ref(menu[0]?.id)
 let io
 onMounted(() => {
   io = new IntersectionObserver(
@@ -45,7 +32,7 @@ onMounted(() => {
   document.querySelectorAll('.cat').forEach((el) => io.observe(el))
 })
 onBeforeUnmount(() => io?.disconnect())
-const observeAgain = () => {
+function observeAgain() {
   if (!io) return
   io.disconnect()
   requestAnimationFrame(() => document.querySelectorAll('.cat').forEach((el) => io.observe(el)))
@@ -57,55 +44,49 @@ const observeAgain = () => {
     <header class="menu__hero wrap">
       <p class="eyebrow">Меню · цены в рублях</p>
       <h1 class="display menu__title">Что тебя <span class="neon">разбудит</span>?</h1>
-      <p class="menu__lead">Шкала «бодрости» у каждого напитка показывает, насколько он крепкий: от «без кофеина» до «будит наверняка». Размер выбирается прямо в карточке.</p>
+      <p class="menu__lead">Классика, авторские напитки, бабл ти и выпечка. Объём выбирается прямо в карточке, а теги помогут найти напиток под настроение.</p>
     </header>
 
     <div class="bar">
       <div class="bar__in wrap">
         <nav class="tabs" aria-label="Категории меню">
-          <a v-for="c in categories" :key="c.id" :href="'#cat-' + c.id" class="tab" :class="{ on: active === c.id }">{{ c.title }}</a>
+          <a v-for="c in menu" :key="c.id" :href="'#cat-' + c.id" class="tab" :class="{ on: active === c.id, 'tab--season': c.isSeasonal }">
+            {{ c.emoji ? `${c.title} ${c.emoji}` : c.title }}
+          </a>
         </nav>
       </div>
     </div>
 
-    <div class="filters wrap" role="group" aria-label="Фильтры меню">
-      <button
-        v-for="f in filterList"
-        :key="f.key"
-        type="button"
-        class="chip"
-        :aria-pressed="filters[f.key]"
-        @click="filters[f.key] = !filters[f.key]; observeAgain()"
-      >
-        {{ f.label }}
+    <div class="filters wrap" role="group" aria-label="Фильтр по вкусу">
+      <button v-for="t in FILTER_TAGS" :key="t" type="button" class="chip" :aria-pressed="tags.includes(t)" @click="toggleTag(t)">
+        {{ tagLabel(t) }}
       </button>
-      <span class="filters__sep" aria-hidden="true"></span>
-      <button
-        v-for="(l, i) in buzzLabel"
-        :key="l"
-        type="button"
-        class="chip chip--buzz"
-        :aria-pressed="buzz === i"
-        @click="buzz = buzz === i ? null : i; observeAgain()"
-      >
-        <span class="mini" aria-hidden="true"><i v-for="n in 3" :key="n" :class="{ on: n <= i }"></i></span>{{ l }}
-      </button>
-      <button v-if="anyFilter" type="button" class="filters__reset" @click="reset(); observeAgain()">Сбросить</button>
+      <button v-if="tags.length" type="button" class="filters__reset" @click="reset">Сбросить</button>
     </div>
 
-    <p class="wrap menu__count" aria-live="polite">Найдено позиций: {{ visible.length }}</p>
+    <p class="wrap menu__count" aria-live="polite">Найдено позиций: {{ count }}</p>
 
     <div class="wrap">
-      <section v-for="g in groups" :id="'cat-' + g.id" :key="g.id" class="cat" :aria-labelledby="'h-' + g.id">
-        <h2 :id="'h-' + g.id" class="cat__title display">{{ g.title }} <sup>{{ g.items.length }}</sup></h2>
+      <section v-for="g in groups" :id="'cat-' + g.id" :key="g.id" class="cat" :class="{ 'cat--season': g.isSeasonal }" :aria-labelledby="'h-' + g.id">
+        <div v-if="g.promo" class="promo">
+          <p class="promo__badge">{{ g.badge }}</p>
+          <h2 :id="'h-' + g.id" class="promo__title display">{{ g.promo.title }}</h2>
+          <p class="promo__text">{{ g.promo.text }}</p>
+          <p class="promo__q">{{ g.promo.question }}</p>
+        </div>
+        <h2 v-else :id="'h-' + g.id" class="cat__title display">
+          {{ g.title }} <sup>{{ g.items.length }}</sup>
+        </h2>
+        <p v-if="g.note" class="cat__note">{{ g.note }}</p>
         <div class="cat__grid">
           <DrinkCard v-for="item in g.items" :key="item.id" :item="item" />
         </div>
+        <p v-if="g.promo" class="promo__foot">{{ g.promo.footer }}</p>
       </section>
       <div v-if="!groups.length" class="empty">
         <p class="display">Ничего не нашлось</p>
-        <p>Попробуй убрать часть фильтров.</p>
-        <button type="button" class="btn btn--ghost" @click="reset(); observeAgain()">Сбросить фильтры</button>
+        <p>Попробуй убрать часть тегов.</p>
+        <button type="button" class="btn btn--ghost" @click="reset">Сбросить фильтр</button>
       </div>
     </div>
   </div>
@@ -180,32 +161,6 @@ const observeAgain = () => {
   padding-top: 28px;
 }
 
-.filters__sep {
-  width: 1px;
-  height: 26px;
-  margin: 0 8px;
-  background: var(--line);
-}
-
-.mini {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
-}
-
-.mini i {
-  width: 3px;
-  border-radius: 1px;
-  background: currentColor;
-  opacity: 0.25;
-}
-
-.mini i:nth-child(1) { height: 5px; }
-.mini i:nth-child(2) { height: 8px; }
-.mini i:nth-child(3) { height: 12px; }
-.mini i.on { opacity: 1; }
-
 .filters__reset {
   margin-left: 6px;
   border: 0;
@@ -243,6 +198,66 @@ const observeAgain = () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 18px;
+}
+
+.cat__note {
+  margin: -12px 0 20px;
+  color: var(--muted);
+}
+
+/* осеннее меню: сплошной блок без градиентов, как остальные плашки сайта */
+.cat--season {
+  padding-top: 40px;
+}
+
+.promo {
+  margin-bottom: 24px;
+  padding: clamp(22px, 4vw, 44px);
+  border-radius: 26px;
+  background: var(--ink-2);
+  border: 1px solid var(--deep);
+  border-left: 3px solid var(--mint);
+}
+
+.promo__badge {
+  display: inline-block;
+  margin: 0 0 16px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--mint);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.promo__title {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 4.6vw, 56px);
+  line-height: 1.02;
+}
+
+.promo__text {
+  max-width: 62ch;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.promo__q {
+  margin: 0;
+  font-weight: 600;
+  color: var(--mint);
+}
+
+.promo__foot {
+  margin: 22px 0 0;
+  color: var(--muted);
+}
+
+.tab--season {
+  color: var(--mint);
 }
 
 .empty {

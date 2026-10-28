@@ -1,13 +1,26 @@
-// Общие данные сайта. Контакты демонстрационные: замените на реальные.
-export const contacts = {
-  phone: '+7 900 000-00-00',
-  phoneHref: 'tel:+79000000000',
-  email: 'hello@budini.coffee',
-  jobsEmail: 'team@budini.coffee',
-  hours: 'Каждый день 7:30-22:00',
-  telegram: '@budini_coffee',
-  vk: 'vk.com/budini',
+// Общие данные сети «Будини Кофе».
+export const brand = {
+  name: 'Будини Кофе',
+  nameLatin: 'Budini Coffee',
+  city: 'Санкт-Петербург и Кудрово',
+  // для всех кофеен сети
+  amenities: ['Карта, СБП, QR, наличные', 'Можно с животными', 'Кофе с собой'],
+  payment: 'Карта, СБП, QR-код, наличные',
 }
+
+export const contacts = {
+  phone: '+7 (911) 026-84-86',
+  phoneHref: 'tel:+79110268486',
+  whatsapp: 'https://wa.me/79110268486',
+  telegram: 'https://t.me/budinicoffee',
+  telegramLabel: '@budinicoffee',
+  vk: 'https://vk.ru/budinicoffee',
+  vkLabel: 'vk.ru/budinicoffee',
+  hours: 'Ежедневно до 23:00',
+}
+
+// Ссылка в WhatsApp с готовым текстом сообщения
+export const whatsappWithText = (text) => `${contacts.whatsapp}?text=${encodeURIComponent(text)}`
 
 // Главное меню (шапка) и полный список разделов (мобильное меню, подвал).
 export const mainNav = [

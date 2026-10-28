@@ -7,25 +7,28 @@ import { useReveal } from '../composables/useReveal'
 import { cafes, hoursText, openState } from '../data/cafes'
 import { menu } from '../data/menu'
 
-// Реальное число кадров, извлечённых из media/budini-hero.mp4 (10 с, 30 к/с).
-const FRAME_COUNT = 300
-// Вертикальная версия той же сцены для телефонов: 540×960, 150 кадров (~2.6 МБ).
-const PORTRAIT = { frameCount: 150, path: 'frames-m/frame_' }
+// Реальное число кадров, извлечённых из media/budini-hero.mp4 (15 с, 30 к/с).
+const FRAME_COUNT = 450
+// Вертикальная версия той же сцены для телефонов: 540×960, 225 кадров.
+const PORTRAIT = { frameCount: 225, path: 'frames-m/frame_' }
 
 const root = ref(null)
 useReveal(root)
 
-const hits = menu.filter((m) => m.hit).slice(0, 4)
-const ticker = ['Разбудим за 2 минуты', 'Свежая обжарка', 'Мятный раф', 'Кофе навынос', 'Растительное молоко', 'С 7:30 каждый день']
+// Сезонная категория (осень), если она сейчас активна; иначе показываем классику
+const season = menu.find((c) => c.isSeasonal) ?? null
+const showcase = season ? season.items : (menu.find((c) => c.id === 'classic')?.items ?? []).slice(0, 4)
+const ticker = ['Осеннее меню', 'Тыквенный латте', 'Бабл ти', 'Кофе с собой', 'Можно с животными', 'Ежедневно до 23:00']
+// разделы-примеры для будущей версии сайта (на страницах есть плашка «Пример раздела»)
 const more = [
-  { to: '/bonus', k: 'Бонусы', t: 'Каждый 10-й кофе в подарок', d: 'Без баллов и процентов, просто считаем чашки.' },
-  { to: '/events', k: 'События', t: 'Каппинги и латте-арт', d: 'Раз в неделю собираемся у кофемашины.' },
-  { to: '/gift', k: 'Сертификаты', t: 'Подари бодрое утро', d: 'Электронный сертификат на любую сумму.' },
+  { to: '/bonus', k: 'Бонусы', t: 'Бонусная программа', d: 'Пример раздела: как может работать карта гостя.' },
+  { to: '/events', k: 'События', t: 'Каппинги и латте-арт', d: 'Пример афиши мероприятий в кофейнях.' },
+  { to: '/gift', k: 'Сертификаты', t: 'Подари бодрое утро', d: 'Пример электронного подарочного сертификата.' },
 ]
 const why = [
-  { n: '01', t: 'Обжариваем каждую неделю', d: 'Зерно для эспрессо и фильтра никогда не лежит дольше 14 дней после обжарки.' },
-  { n: '02', t: 'Заказ за 2 минуты', d: 'Предзаказ к нужному времени: приходишь, а стакан уже ждёт на стойке.' },
-  { n: '03', t: 'Мята в характере', d: 'Фирменный мятный раф, лимонад и «Будильник» с тоником есть только у нас.' },
+  { n: '01', t: `${cafes.length} кофеен`, d: 'Лиговский, Испытателей, Долгоозёрная, Коломяжский в Петербурге и Пражская в Кудрово.' },
+  { n: '02', t: 'Ежедневно до 23:00', d: 'Вечером тоже можно зайти за кофе: все точки работают без выходных.' },
+  { n: '03', t: 'С питомцами', d: 'Можно с животными и кофе с собой. Оплата картой, по СБП, QR-коду или наличными.' },
 ]
 </script>
 
@@ -34,7 +37,7 @@ const why = [
     <ScrollVideo :frame-count="FRAME_COUNT" :portrait="PORTRAIT" height="520vh">
       <!-- Надписи стоят на сплошных чёрных плашках, как на обложке «Будини»: без свечения и градиентов. -->
       <div class="m m--hero" data-in="0" data-out="0.18">
-        <p class="m__tag">Кофейня · каждый день с 7:30</p>
+        <p class="m__tag">Кофейня · ежедневно до 23:00</p>
         <div class="m__band">
           <h1 class="display m__title">Буди<span class="neon">ни</span></h1>
         </div>
@@ -43,23 +46,23 @@ const why = [
       </div>
 
       <div class="m m--plate m--left" data-in="0.24" data-out="0.44">
-        <p class="m__step"><span class="neon">01</span> Воронка</p>
-        <h2 class="display m__h">Свежая обжарка каждую неделю</h2>
-        <p class="m__text">Наше зерно уходит в чашку в первые две недели после обжарки. Поэтому вкус яркий, без горечи.</p>
+        <p class="m__step"><span class="neon">01</span> Осень</p>
+        <h2 class="display m__h">Осеннее меню уже здесь</h2>
+        <p class="m__text">Восемь новых напитков: тыквенный латте, мокко «Пряный апельсин», чайный раф, грейпфрутовый глинтвейн и не только.</p>
       </div>
 
       <div class="m m--plate m--right" data-in="0.52" data-out="0.74">
         <p class="m__step"><span class="neon">02</span> Крышка</p>
-        <h2 class="display m__h">Готово к твоему приходу</h2>
-        <p class="m__text">Закажи заранее, выбери время и забирай без очереди.</p>
+        <h2 class="display m__h">Кофе с собой</h2>
+        <p class="m__text">Пять кофеен в Петербурге и Кудрово. Можно зайти с питомцем.</p>
       </div>
 
       <div class="m m--plate m--final" data-in="0.82">
         <p class="m__step"><span class="neon">03</span> В путь</p>
         <h2 class="display m__h m__h--big">Просыпайся<br /><span class="neon">с нами</span></h2>
         <div class="m__actions">
-          <RouterLink :to="{ path: '/', hash: '#budilnik' }" class="btn">Заказать кофе</RouterLink>
-          <RouterLink to="/menu" class="btn btn--ghost">Смотреть меню</RouterLink>
+          <RouterLink to="/menu" class="btn">Смотреть меню</RouterLink>
+          <RouterLink to="/addresses" class="btn btn--ghost">Адреса</RouterLink>
         </div>
       </div>
     </ScrollVideo>
@@ -86,22 +89,27 @@ const why = [
     <section class="hits wrap" aria-labelledby="hits-title">
       <div class="hits__head reveal">
         <div>
-          <p class="eyebrow">Чаще всего заказывают</p>
-          <h2 id="hits-title" class="display hits__title">Хиты <span class="neon">Будини</span></h2>
+          <p class="eyebrow">{{ season ? 'Новинка сезона' : 'В меню' }}</p>
+          <h2 id="hits-title" class="display hits__title">
+            <template v-if="season">Осеннее <span class="neon">меню</span> {{ season.emoji }}</template>
+            <template v-else>Классика <span class="neon">Будини</span></template>
+          </h2>
+          <p v-if="season?.promo" class="hits__lead">{{ season.promo.text }}</p>
         </div>
-        <RouterLink to="/menu" class="btn btn--ghost">Всё меню</RouterLink>
+        <RouterLink :to="season ? { path: '/menu', hash: '#cat-' + season.id } : '/menu'" class="btn btn--ghost">Всё меню</RouterLink>
       </div>
       <div class="hits__grid">
-        <div v-for="(h, i) in hits" :key="h.id" class="reveal" :style="{ '--d': i * 0.08 + 's' }">
+        <div v-for="(h, i) in showcase" :key="h.id" class="reveal" :style="{ '--d': (i % 4) * 0.08 + 's' }">
           <DrinkCard :item="h" />
         </div>
       </div>
+      <p v-if="season?.promo" class="hits__foot reveal">{{ season.promo.question }} {{ season.promo.footer }}</p>
     </section>
 
     <section class="near wrap" aria-labelledby="near-title">
       <div class="hits__head reveal">
         <div>
-          <p class="eyebrow">{{ cafes.length }} кофейни в городе</p>
+          <p class="eyebrow">{{ cafes.length }} кофеен · Петербург и Кудрово</p>
           <h2 id="near-title" class="display hits__title">Где нас <span class="neon">найти</span></h2>
         </div>
         <RouterLink to="/addresses" class="btn btn--ghost">Все адреса</RouterLink>
@@ -110,7 +118,7 @@ const why = [
         <li v-for="(c, i) in cafes" :key="c.id" class="near__item reveal" :style="{ '--d': i * 0.07 + 's' }">
           <RouterLink :to="{ path: '/addresses', hash: '#' + c.id }" class="near__link">
             <span class="near__street display">{{ c.street }}</span>
-            <span class="near__meta">{{ hoursText(c) }}</span>
+            <span class="near__meta">{{ c.landmark || c.city }} · {{ hoursText(c) }}</span>
             <span class="near__state" :class="{ open: openState(c).open }">{{ openState(c).label }}</span>
           </RouterLink>
         </li>
@@ -361,6 +369,17 @@ const why = [
   gap: 20px;
   flex-wrap: wrap;
   margin-bottom: 40px;
+}
+
+.hits__lead {
+  max-width: 62ch;
+  margin: 16px 0 0;
+  color: var(--muted);
+}
+
+.hits__foot {
+  margin: 28px 0 0;
+  color: var(--muted);
 }
 
 .hits__title {

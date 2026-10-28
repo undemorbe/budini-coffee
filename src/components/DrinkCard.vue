@@ -1,12 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { buzzLabel, sizes } from '../data/menu'
 
+// item: модель MenuItem из src/domain/menu/models.js
 const props = defineProps({ item: { type: Object, required: true } })
 
-const available = computed(() => sizes.map((s, i) => ({ ...s, price: props.item.prices[i] })).filter((s) => s.price != null))
-const size = ref(available.value.length > 1 ? available.value[1].id : available.value[0].id)
-const current = computed(() => available.value.find((s) => s.id === size.value))
+const volumes = computed(() => props.item.volumes)
+// по умолчанию средний объём из трёх, иначе самый маленький
+const selected = ref(volumes.value.length >= 3 ? 1 : 0)
+const current = computed(() => volumes.value[selected.value] ?? volumes.value[0])
 </script>
 
 <template>
@@ -14,34 +15,28 @@ const current = computed(() => available.value.find((s) => s.id === size.value))
     <div class="card__top">
       <div class="card__badges">
         <span v-if="item.isNew" class="badge badge--new">Новинка</span>
-        <span v-if="item.hit" class="badge">Хит</span>
-        <span v-if="item.plant" class="badge badge--line">Растительное молоко</span>
-        <span v-if="item.cold" class="badge badge--line">Холодный</span>
+        <span v-for="t in item.tags" :key="t.id" class="badge badge--line">{{ t.label }}</span>
       </div>
-      <div class="buzz" :title="buzzLabel[item.buzz]">
-        <span class="sr-only">Бодрость: {{ buzzLabel[item.buzz] }}</span>
-        <span v-for="n in 3" :key="n" class="buzz__bar" :class="{ on: n <= item.buzz }" aria-hidden="true"></span>
-      </div>
+      <span v-if="item.emoji" class="card__emoji" aria-hidden="true">{{ item.emoji }}</span>
     </div>
 
     <h3 class="card__name">{{ item.name }}</h3>
-    <p class="card__desc">{{ item.desc }}</p>
-    <p class="card__buzz">{{ buzzLabel[item.buzz] }}</p>
+    <p v-if="item.description" class="card__desc">{{ item.description }}</p>
 
     <div class="card__foot">
-      <div v-if="!item.single && available.length > 1" class="sizes" role="group" :aria-label="`Размер: ${item.name}`">
+      <div v-if="volumes.length > 1" class="sizes" role="group" :aria-label="`Объём: ${item.name}`">
         <button
-          v-for="s in available"
-          :key="s.id"
+          v-for="(v, i) in volumes"
+          :key="v.ml"
           type="button"
           class="size"
-          :aria-pressed="size === s.id"
-          @click="size = s.id"
+          :aria-pressed="selected === i"
+          @click="selected = i"
         >
-          {{ s.id }}<small>{{ s.ml }}</small>
+          {{ v.ml }}<small>мл</small>
         </button>
       </div>
-      <span v-else-if="!item.single" class="size size--only">{{ available[0].id }}<small>{{ available[0].ml }}</small></span>
+      <span v-else-if="item.unit === 'ml'" class="size size--only">{{ volumes[0].ml }}<small>мл</small></span>
       <span v-else class="size size--only">шт.</span>
       <p class="price">{{ current.price }} ₽</p>
     </div>
@@ -102,26 +97,10 @@ const current = computed(() => available.value.find((s) => s.id === size.value))
   color: var(--muted);
 }
 
-.buzz {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 22px;
+.card__emoji {
   flex: none;
-}
-
-.buzz__bar {
-  width: 6px;
-  border-radius: 2px;
-  background: var(--line);
-}
-
-.buzz__bar:nth-child(2) { height: 8px; }
-.buzz__bar:nth-child(3) { height: 14px; }
-.buzz__bar:nth-child(4) { height: 20px; }
-
-.buzz__bar.on {
-  background: var(--mint);
+  font-size: 26px;
+  line-height: 1;
 }
 
 .card__name {
@@ -137,14 +116,6 @@ const current = computed(() => available.value.find((s) => s.id === size.value))
   margin: 0;
   color: var(--muted);
   font-size: 15px;
-}
-
-.card__buzz {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--teal);
 }
 
 .card__foot {

@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import ConceptNote from '../components/ConceptNote.vue'
 import PageHero from '../components/PageHero.vue'
 import { useReveal } from '../composables/useReveal'
 import { contacts } from '../data/site'
@@ -16,8 +17,8 @@ const perks = [
 
 const jobs = [
   { t: 'Бариста', where: 'Все кофейни', pay: 'от 60 000 ₽', d: 'Готовишь напитки, общаешься с гостями, следишь за чистотой бара. Опыт не обязателен.' },
-  { t: 'Старший бариста', where: 'пр. Мира, 45', pay: 'от 85 000 ₽', d: 'Ведёшь смену из 3-4 человек, отвечаешь за стоп-лист и качество напитков.' },
-  { t: 'Пекарь', where: 'Набережная, 8', pay: 'от 70 000 ₽', d: 'Утренняя выпечка для всех кофеен: круассаны, синнабоны, сырники.' },
+  { t: 'Старший бариста', where: 'Лиговский пр., 44', pay: 'от 85 000 ₽', d: 'Ведёшь смену из 3-4 человек, отвечаешь за стоп-лист и качество напитков.' },
+  { t: 'Бариста в Кудрово', where: 'Пражская ул., 6к1', pay: 'от 60 000 ₽', d: 'Утренние смены с 07:30 в будни, классика, авторские напитки и бабл ти.' },
 ]
 </script>
 
@@ -29,6 +30,7 @@ const jobs = [
       accent="вместе с нами"
       lead="Ищем людей, которые любят кофе и утро. Научим всему остальному."
     />
+    <ConceptNote />
 
     <section class="wrap perks" aria-label="Что мы даём">
       <article v-for="(p, i) in perks" :key="p.t" class="perk reveal" :style="{ '--d': i * 0.07 + 's' }">
@@ -48,9 +50,9 @@ const jobs = [
         <p class="job__pay display">{{ j.pay }}</p>
       </article>
       <div class="apply reveal">
-        <p class="apply__t">Отправь короткий рассказ о себе на почту</p>
-        <p class="apply__mail display">{{ contacts.jobsEmail }}</p>
-        <p class="apply__note">или подойди к бариста в любой кофейне и попроси анкету</p>
+        <p class="apply__t">Напиши коротко о себе в Telegram или WhatsApp</p>
+        <a :href="contacts.telegram" target="_blank" rel="noopener" class="apply__mail display">{{ contacts.telegramLabel }}</a>
+        <p class="apply__note">или позвони: {{ contacts.phone }}</p>
       </div>
     </section>
   </div>
