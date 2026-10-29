@@ -1,7 +1,7 @@
 // Модели меню и маппинг из DTO (src/data/menuSource.js или будущего API) в модели для UI.
 //
 // Category  { id, title, emoji, badge, note, sort, isSeasonal, enabled, availableFrom, availableTo, promo, items }
-// MenuItem  { id, categoryId, name, emoji, description, tags, tagIds, volumes, unit, minPrice, isNew }
+// MenuItem  { id, categoryId, name, emoji, description, tags, tagIds, volumes, unit, minPrice, isNew, milk, cold, tapioca }
 // Volume    { ml, price, label }
 // Tag       { id, label }
 
@@ -28,6 +28,13 @@ export const tagLabel = (id) => LABELS[id] ?? id
 export function mapTag(raw) {
   const label = String(raw).trim().toLowerCase()
   return { id: TAGS[label] ?? label, label }
+}
+
+// Молоко в напитке: 'base' — на молоке (можно заменить), 'optional' — по желанию, 'none' — без молока
+export function mapMilk(raw) {
+  if (raw === true) return 'base'
+  if (raw === 'optional') return 'optional'
+  return 'none'
 }
 
 const isPrice = (p) => typeof p === 'number' && Number.isFinite(p) && p > 0
@@ -57,6 +64,10 @@ export function mapMenuItem(dto, category = {}) {
     unit: byVolume ? 'ml' : 'pcs',
     minPrice: volumes.length ? Math.min(...volumes.map((x) => x.price)) : null,
     isNew: dto.is_new ?? category.badge === 'Новинка',
+    // настройки категории действуют по умолчанию, у позиции главнее; выпечке молоко не нужно
+    milk: byVolume ? mapMilk(dto.milk ?? category.milk) : 'none',
+    cold: Boolean(dto.cold ?? category.cold),
+    tapioca: Boolean(dto.tapioca ?? category.tapioca),
   }
 }
 
@@ -81,6 +92,10 @@ export function mapCategory(dto) {
     availableFrom: parseDay(dto.available_from),
     availableTo: parseDay(dto.available_to, true),
     promo: dto.promo ?? null,
+    // значения по умолчанию для позиций категории
+    milk: dto.milk ?? false,
+    cold: Boolean(dto.cold),
+    tapioca: Boolean(dto.tapioca),
     items: [],
   }
   // позиции без цены в меню не показываем

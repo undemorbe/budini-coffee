@@ -2,17 +2,21 @@
 import { computed, ref } from 'vue'
 
 // item: модель MenuItem из src/domain/menu/models.js
-const props = defineProps({ item: { type: Object, required: true } })
+// orderable: в меню у карточки кнопка «+»: напиток открывает конструктор, выпечка сразу идёт на поднос
+const props = defineProps({ item: { type: Object, required: true }, orderable: Boolean })
+const emit = defineEmits(['order'])
 
 const volumes = computed(() => props.item.volumes)
 // по умолчанию средний объём из трёх, иначе самый маленький
 const selected = ref(volumes.value.length >= 3 ? 1 : 0)
 const current = computed(() => volumes.value[selected.value] ?? volumes.value[0])
+const hasTop = computed(() => props.item.isNew || props.item.tags.length || props.item.emoji)
+const order = (e) => emit('order', { item: props.item, volumeIndex: selected.value, el: e.currentTarget })
 </script>
 
 <template>
-  <article class="card">
-    <div class="card__top">
+  <article class="card" :class="{ 'card--order': orderable }">
+    <div v-if="hasTop" class="card__top">
       <div class="card__badges">
         <span v-if="item.isNew" class="badge badge--new">Новинка</span>
         <span v-for="t in item.tags" :key="t.id" class="badge badge--line">{{ t.label }}</span>
@@ -37,8 +41,17 @@ const current = computed(() => volumes.value[selected.value] ?? volumes.value[0]
         </button>
       </div>
       <span v-else-if="item.unit === 'ml'" class="size size--only">{{ volumes[0].ml }}<small>мл</small></span>
-      <span v-else class="size size--only">шт.</span>
-      <p class="price">{{ current.price }} ₽</p>
+      <span v-else-if="!orderable" class="size size--only">шт.</span>
+      <div class="card__buy">
+        <p class="price" aria-live="polite">
+          <Transition name="tick" mode="out-in">
+            <span :key="current.price">{{ current.price }} ₽</span>
+          </Transition>
+        </p>
+        <button v-if="orderable" type="button" class="add" :aria-label="item.unit === 'ml' ? `Собрать: ${item.name}` : `На поднос: ${item.name}`" @click="order">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+      </div>
     </div>
   </article>
 </template>
@@ -166,7 +179,86 @@ const current = computed(() => volumes.value[selected.value] ?? volumes.value[0]
 
 .size--only {
   cursor: default;
+  min-width: 0;
+  padding: 0;
+  border: 0;
   color: var(--muted);
+}
+
+.card__buy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* в меню кнопке «+» не хватает места рядом с объёмами: цена с кнопкой уходят отдельной строкой */
+.card--order .card__foot {
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+.card--order .sizes,
+.card--order .size--only {
+  flex-basis: 100%;
+}
+
+.card--order .card__buy {
+  flex: 1;
+  justify-content: space-between;
+}
+
+.price span {
+  display: inline-block;
+}
+
+.tick-enter-active,
+.tick-leave-active {
+  transition: transform 0.35s var(--ease), opacity 0.25s;
+}
+
+.tick-enter-from {
+  opacity: 0;
+  transform: translateY(60%);
+}
+
+.tick-leave-to {
+  opacity: 0;
+  transform: translateY(-60%);
+}
+
+.add {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--mint);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.5s var(--ease), background 0.3s, box-shadow 0.3s;
+}
+
+.add svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+@media (hover: hover) {
+  .add:hover {
+    background: var(--pale);
+    transform: rotate(90deg);
+    box-shadow: 0 0 24px rgba(102, 212, 190, 0.45);
+  }
+}
+
+.add:active {
+  transform: scale(0.9);
+  transition-duration: 0.1s;
 }
 
 .price {
